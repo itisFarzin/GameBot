@@ -10,55 +10,65 @@ load_dotenv()
 conn = sqlite3.connect('main.db')
 cursor = conn.cursor()
 
+OWNER_ID = int(os.getenv("OWNER_ID"))
+START_MONEY = int(os.getenv("START_MONEY") or 1000)
+LOAN_LIMIT = int(os.getenv("LOAN_LIMIT") or 1000)
+BLUE = '\033[34m'
+RESET = '\033[0m'
+
 def fix_id(id: int):
     return int(str(id).replace("-", ""))
 
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS groups (
-        group_id INTEGER PRIMARY KEY UNIQUE,
-        name TEXT NOT NULL
-    )
-''')
-
-def insert_user(group: Chat, user: User, balance: int = 100):
-    group_id = fix_id(group.id)
+def insert_user(chat: Chat, user: User, balance: int = START_MONEY):
+    chat_id = fix_id(chat.id)
     cursor.execute(f'''
-        INSERT OR IGNORE INTO group_{group_id} (user_id, name, balance)
+        INSERT OR IGNORE INTO group_{chat_id} (user_id, name, balance)
         VALUES (?, ?, ?)
     ''', (user.id, user.first_name, balance))
     conn.commit()
 
-def update_user_balance(group: Chat, user: User, new_amount: int):
-    group_id = fix_id(group.id)
-    insert_user(group, user)
+def update_user_value(chat: Chat, user: User, key: str, value: str | int):
+    chat_id = fix_id(chat.id)
+    insert_user(chat, user)
     cursor.execute(f'''
-        UPDATE group_{group_id}
-        SET balance = ?
+        UPDATE group_{chat_id}
+        SET {key} = ?
         WHERE user_id = ?
-    ''', (new_amount, user.id))
+    ''', (value, user.id))
     conn.commit()
 
-def get_user_balance(group: Chat, user: User):
-    group_id = fix_id(group.id)
-    insert_user(group, user)
+def get_user_values(chat: Chat, user: User, key: str):
+    chat_id = fix_id(chat.id)
+    insert_user(chat, user)
     cursor.execute(f'''
-        SELECT balance
-        FROM group_{group_id}
+        SELECT {key}
+        FROM group_{chat_id}
         WHERE user_id = ?
     ''', (user.id,))
-    return cursor.fetchone()[0]
+    return cursor.fetchone()
 
-OWNER_ID = int(os.getenv("OWNER_ID"))
-LOAN_LIMIT = int(os.getenv("LOAN_LIMIT") or 1000)
-BLUE = '\033[34m'
-RESET = '\033[0m'
+def get_user_value(chat: Chat, user: User, key: str):
+    return get_user_values(chat, user, key)[0]
+
+def pay_loan(chat: Chat, user: User, amount: int):
+    user_balance = get_user_value(chat, user, "balance")
+    loan = get_user_value(chat, user, "loan")
+
+    if amount > user_balance:
+        return "You dont have the money to pay the loan."
+
+    update_user_value(chat, user, "loan", loan - amount if not amount == loan else 0)
+    update_user_value(chat, user, "balance", user_balance - amount)
+    if not amount == loan:
+        return f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay."
+    return f"You paid the ${loan} loan."
 
 app = Client("BetBot",
             api_id=os.getenv("APP_ID"),
             api_hash=os.getenv("API_HASH"),
             bot_token=os.getenv("BOT_TOKEN"))
 
-@app.on_message(filters.command(["info", "balance", "gift", "setbalance", "addbalance", "rmbalance", "leaderboard", "loan", "repay", "roulette"]) & filters.group)
+@app.on_message(filters.command(["info", "balance", "gift", "reset", "setbalance", "addbalance", "rmbalance", "leaderboard", "loan", "repay", "roulette"]) & filters.group)
 async def message(_, message: Message):
     chat = message.chat
     user = message.from_user
@@ -71,17 +81,12 @@ async def message(_, message: Message):
         amount = int(amount)
     fixed_chat_id = fix_id(chat.id)
     user_is_admin = user.id == OWNER_ID
-
-    cursor.execute('''
-        INSERT OR IGNORE INTO groups (group_id, name)
-        VALUES (?, ?)
-    ''', (fixed_chat_id, chat.full_name))
     
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS group_{fixed_chat_id} (
             user_id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
-            balance BIGINT DEFAULT 100,
+            balance BIGINT DEFAULT {START_MONEY},
             wins INTEGER DEFAULT 0,
             losses INTEGER DEFAULT 0,
             win_streak INTEGER DEFAULT 0,
@@ -90,58 +95,61 @@ async def message(_, message: Message):
         )
     ''')
     conn.commit()
-    insert_user(chat, user)
 
     match action:
         case "info":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            insert_user(chat, user)
-            cursor.execute(f'''
-                SELECT *
-                FROM group_{fixed_chat_id}
-                WHERE user_id = ?
-            ''', (user.id,))
-            _, name, balance, wins, losses, win_streak, loss_streak, loan = cursor.fetchone()
-            await message.reply(f"Name: {name}\nBalance: ${balance}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}\nLoan: ${loan}")
+            _, name, balance, wins, losses, win_streak, loss_streak, loan = get_user_values(chat, user, "*")
+            await message.reply(f"Name: {name}\nBalance: ${balance:,}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}\nLoan: ${loan}")
         case "balance":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            await message.reply(f"Balance: ${get_user_balance(chat, user):,}.")
+            await message.reply(f"Balance: ${get_user_value(chat, user, 'balance'):,}.")
         case "gift":
             if not amount:
                 await message.reply("/gift [amount]")
                 return
             if not message.reply_to_message:
-                await message.reply("You should reply to user you want to gift your money.")
+                await message.reply("You should reply to user that you want to gift your money.")
                 return
-            user_balance = get_user_balance(chat, user)
+            user_balance = get_user_value(chat, user, "balance")
             if user_balance < amount:
                 await message.reply("You dont have this amount of money.")
                 return
+            update_user_value(chat, user, "balance", user_balance - amount)
             that_user = message.reply_to_message.from_user
-            that_user_balance = get_user_balance(chat, that_user)
-            update_user_balance(chat, user, user_balance - amount)
-            update_user_balance(chat, that_user, that_user_balance + amount)
-            await message.reply(f"You gifted {that_user.first_name} ${amount}")
+            that_user_balance = get_user_value(chat, that_user, "balance")
+            update_user_value(chat, that_user, "balance", that_user_balance + amount)
+            await message.reply(f"You gifted {that_user.first_name} ${amount}.")
+        case "reset" if user_is_admin:
+            if not message.reply_to_message:
+                await message.reply("You should reply to user that you want to delete their data.")
+                return
+            user = message.reply_to_message.from_user
+            cursor.execute(f'''
+                DELETE FROM group_{fixed_chat_id}
+                WHERE user_id = ?
+            ''', (user.id,))
+            await message.reply(f"Removed {user.first_name} data successfully.")
         case "setbalance" if user_is_admin:
             if not amount:
                 await message.reply("/setbalance [amount]")
                 return
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            update_user_balance(chat, user, amount)
-            await message.reply(f"Set {user.first_name} balance to ${amount}\nNew balance: ${amount}")
+            update_user_value(chat, user, "balance", amount)
+            await message.reply(f"Set {user.first_name} balance to ${amount:,}")
         case "addbalance"|"rmbalance" if user_is_admin:
             if not amount:
                 await message.reply("/addbalance|rmbalance [amount]")
                 return
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            user_balance = get_user_balance(chat, user)
+            user_balance = get_user_value(chat, user, "balance")
             if action == "addbalance":
                 new_amount = user_balance + amount
-                text = f"Added ${amount} to {user.first_name}.\nNew balance: ${new_amount}"
+                text = f"Added ${amount} to {user.first_name}.\nNew balance: ${new_amount}."
             else:
                 new_amount = user_balance - amount
-                f"Removed ${amount} from {user.first_name}.\nNew balance: ${new_amount}"
-            update_user_balance(chat, user, new_amount)
+                text = f"Removed ${amount} from {user.first_name}.\nNew balance: ${new_amount}."
+            update_user_value(chat, user, "balance", new_amount)
             await message.reply(text)
         case "leaderboard":
             text = "Leaderboard:\n"
@@ -151,9 +159,9 @@ async def message(_, message: Message):
                 ORDER BY balance DESC
                 LIMIT 10
             ''')
-            for data in cursor.fetchall():
+            for i, data in enumerate(cursor.fetchall(), start=1):
                 name, balance = data
-                text += f"{name}: {int(balance):,}\n"
+                text += f"{i}. {name}: ${int(balance):,}\n"
             await message.reply(text)
         case "loan":
             if not amount:
@@ -163,33 +171,19 @@ async def message(_, message: Message):
                 await message.reply("Loan amount can't be zero.")
                 return
             if amount > LOAN_LIMIT:
-                await message.reply(f"Loan amount can't exceed ${LOAN_LIMIT}.")
+                await message.reply(f"Loan amount can't exceed ${LOAN_LIMIT:,}.")
                 return
-            cursor.execute(f'''
-                SELECT loan
-                FROM group_{fixed_chat_id}
-                WHERE user_id = ?
-            ''', (user.id,))
-            if not cursor.fetchone()[0] == 0:
+            loan = get_user_value(chat, user, "loan")
+            if not loan == 0:
                 await message.reply("You have loan to repay.\nUse /repay to pay it now.")
                 return
-            
-            cursor.execute(f'''
-                UPDATE group_{fixed_chat_id}
-                SET loan = ?
-                WHERE user_id = ?
-            ''', (amount, user.id))
-            user_balance = get_user_balance(chat, user)
-            update_user_balance(chat, user, user_balance + amount)
+            update_user_value(chat, user, "loan", amount)
+            user_balance = get_user_value(chat, user, "balance")
+            update_user_value(chat, user, "balance", user_balance + amount)
             conn.commit()
             await message.reply(f"You have been granted a loan of ${amount}. It has been added to your balance.")
         case "repay":
-            cursor.execute(f'''
-                SELECT loan
-                FROM group_{fixed_chat_id}
-                WHERE user_id = ?
-            ''', (user.id,))
-            loan = cursor.fetchone()[0]
+            loan = get_user_value(chat, user, "loan")
             if loan == 0:
                 await message.reply("You dont have loan to pay.")
                 return
@@ -198,21 +192,9 @@ async def message(_, message: Message):
             if amount == 0:
                 await message.reply("Pay amount can't be zero.")
                 return
-            user_balance = get_user_balance(chat, user)
-            if amount > user_balance:
-                await message.reply("You dont have the money to pay the loan.")
-                return
-
-            cursor.execute(f'''
-                UPDATE group_{fixed_chat_id}
-                SET loan = ?
-                WHERE user_id = ?
-            ''', (loan - amount if not amount == loan else 0, user.id))
-            update_user_balance(chat, user, user_balance - amount)
-            if not amount == loan:
-                await message.reply(f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay.")
-                return
-            await message.reply("You paid the loan.")
+            if amount > loan:
+                amount = loan
+            await message.reply(pay_loan(chat, user, amount))
         case "roulette":
             if not amount:
                 await message.reply("/roulette [amount]")
@@ -220,7 +202,7 @@ async def message(_, message: Message):
             if amount == 0:
                 await message.reply("The amount can't be zero.")
                 return
-            if get_user_balance(chat, user) < amount:
+            if get_user_value(chat, user, "balance") < amount:
                 await message.reply("You dont have this amount of money.")
                 return
             await message.reply("Choose", reply_markup=InlineKeyboardMarkup(
@@ -235,7 +217,6 @@ async def callback(_, query: CallbackQuery):
     chat = query.message.chat
     user = query.from_user
     datas = data.split("-")
-    fixed_chat_id = fix_id(chat.id)
 
     if not query.message:
         return
@@ -247,7 +228,7 @@ async def callback(_, query: CallbackQuery):
     if datas[0] in ["even", "odd", "red", "black", "cancel"]:
         chose, amount = datas
         amount = int(amount)
-        user_balance = get_user_balance(chat, user)
+        user_balance = get_user_value(chat, user, "balance")
         text = None
         won = False
         number = random.randrange(1, 36)
@@ -270,34 +251,21 @@ async def callback(_, query: CallbackQuery):
                 won = True
         if not won:
             text = f"You Lose ${amount:,}."
-        update_user_balance(chat, user, (user_balance + amount) if won else (user_balance - amount))
-        cursor.execute(f'''
-            SELECT {"wins" if won else "losses"}
-            FROM group_{fixed_chat_id}
-            WHERE user_id = ?
-        ''', (user.id,))
-        cursor.execute(f'''
-            UPDATE group_{fixed_chat_id}
-            SET {"wins" if won else "losses"} = ?
-            WHERE user_id = ?
-        ''', (cursor.fetchone()[0] + 1, user.id)) 
-        
-        cursor.execute(f'''
-            SELECT {"win_streak" if won else "loss_streak"}
-            FROM group_{fixed_chat_id}
-            WHERE user_id = ?
-        ''', (user.id,))
-        cursor.execute(f'''
-            UPDATE group_{fixed_chat_id}
-            SET {"win_streak" if won else "loss_streak"} = ?
-            WHERE user_id = ?
-        ''', (cursor.fetchone()[0] + 1, user.id))
-        cursor.execute(f'''
-            UPDATE group_{fixed_chat_id}
-            SET {"win_streak" if not won else "loss_streak"} = ?
-            WHERE user_id = ?
-        ''', (0, user.id))
-        conn.commit()
+        res = get_user_value(chat, user, "wins" if won else "losses")
+        update_user_value(chat, user, "wins" if won else "losses", int(res) + 1)
+
+        res = get_user_value(chat, user, "win_streak" if won else "loss_streak")
+        update_user_value(chat, user, "win_streak" if won else "loss_streak", int(res) + 1)
+        update_user_value(chat, user, "win_streak" if not won else "loss_streak", 0)
+        pay_amount = 0
+        if won:
+            loan = get_user_value(chat, user, "loan")
+            if not loan == 0:
+                pay_amount = amount // 10
+                if pay_amount > loan:
+                    pay_amount = loan
+                text += "\n\n" + pay_loan(chat, user, pay_amount)
+        update_user_value(chat, user, "balance", (user_balance + amount - pay_amount) if won else (user_balance - amount))
 
         await query.answer(text)
         await query.edit_message_text(f'The wheel spins... and lands on {number} ({"even, black" if number % 2 == 0 else "odd, red"}).\n' + text)
