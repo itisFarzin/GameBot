@@ -2,6 +2,7 @@ import os
 import random
 import sqlite3
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 from pyrogram import Client, filters
 from pyrogram.types import Message, Chat, User, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
@@ -68,7 +69,7 @@ app = Client("BetBot",
             api_hash=os.getenv("API_HASH"),
             bot_token=os.getenv("BOT_TOKEN"))
 
-@app.on_message(filters.command(["info", "balance", "gift", "reset", "setbalance", "addbalance", "rmbalance", "leaderboard", "loan", "repay", "roulette"]) & filters.group)
+@app.on_message(filters.command(["info", "balance", "gift", "reset", "setbalance", "addbalance", "rmbalance", "leaderboard", "loan", "repay", "daily", "roulette"]) & filters.group)
 async def message(_, message: Message):
     chat = message.chat
     user = message.from_user
@@ -81,7 +82,7 @@ async def message(_, message: Message):
         amount = int(amount)
     fixed_chat_id = fix_id(chat.id)
     user_is_admin = user.id == OWNER_ID
-    
+
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS group_{fixed_chat_id} (
             user_id INTEGER PRIMARY KEY,
@@ -91,7 +92,9 @@ async def message(_, message: Message):
             losses INTEGER DEFAULT 0,
             win_streak INTEGER DEFAULT 0,
             loss_streak INTEGER DEFAULT 0,
-            loan BIGINT DEFAULT 0
+            loan BIGINT DEFAULT 0,
+            last_claim DATE,
+            claim_streak INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -99,8 +102,8 @@ async def message(_, message: Message):
     match action:
         case "info":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            _, name, balance, wins, losses, win_streak, loss_streak, loan = get_user_values(chat, user, "*")
-            await message.reply(f"Name: {name}\nBalance: ${balance:,}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}\nLoan: ${loan}")
+            _, name, balance, wins, losses, win_streak, loss_streak, loan, __, claim_streak = get_user_values(chat, user, "*")
+            await message.reply(f"Name: {name}\nBalance: ${balance:,}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}\nLoan: ${loan}\nClaim Streak: {claim_streak}")
         case "balance":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
             await message.reply(f"Balance: ${get_user_value(chat, user, 'balance'):,}.")
@@ -195,6 +198,32 @@ async def message(_, message: Message):
             if amount > loan:
                 amount = loan
             await message.reply(pay_loan(chat, user, amount))
+        case "daily":
+            today = datetime.utcnow().date()
+            last_claim, streak = get_user_values(chat, user, "last_claim, claim_streak")
+
+            if last_claim:
+                last_claim_date = datetime.strptime(last_claim, '%Y-%m-%d').date()
+                if last_claim_date == today:
+                    await message.reply("You've already claimed your daily reward today.")
+                    return
+
+                if last_claim_date == today - timedelta(days=1):
+                    streak += 1
+                else:
+                    streak = 1
+
+                if streak == 8:
+                    streak = 1
+
+            streak = streak or 1
+            reward = 100 * streak
+            user_balance = get_user_value(chat, user, "balance")
+            update_user_value(chat, user, "balance", user_balance + reward)
+            update_user_value(chat, user, "last_claim", today)
+            update_user_value(chat, user, "claim_streak", streak)
+
+            await message.reply(f"You've received ${reward} as your daily reward! Your current streak is {streak} days.\nYour new balance is ${get_user_value(chat, user, 'balance'):,}")
         case "roulette":
             if not amount:
                 await message.reply("/roulette [amount]")

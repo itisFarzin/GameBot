@@ -11,7 +11,8 @@ cursor.execute(f'''
 for group_id in cursor.fetchall():
     group_id = group_id[0]
     print(f"Updrading group {group_id} datas")
-    # cursor.execute(f"ALTER TABLE group_{group_id} ADD COLUMN loan INTEGER DEFAULT 0")
+    cursor.execute(f"ALTER TABLE group_{group_id} ADD COLUMN last_claim DATE")
+    cursor.execute(f"ALTER TABLE group_{group_id} ADD COLUMN claim_streak INTEGER DEFAULT 0")
 conn.commit()
 print("Done")
 
