@@ -82,7 +82,9 @@ async def message(_, message: Message):
             name TEXT NOT NULL,
             balance BIGINT DEFAULT 100,
             wins INTEGER DEFAULT 0,
-            losses INTEGER DEFAULT 0
+            losses INTEGER DEFAULT 0,
+            win_streak INTEGER DEFAULT 0,
+            loss_streak INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -97,8 +99,8 @@ async def message(_, message: Message):
                 FROM group_{fixed_chat_id}
                 WHERE user_id = ?
             ''', (user.id,))
-            _, name, balance, wins, losses = cursor.fetchone()
-            await message.reply(f"Name: {name}\nBalance: ${balance}\nWins: {wins}\nLosses: {losses}")
+            _, name, balance, wins, losses, win_streak, loss_streak = cursor.fetchone()
+            await message.reply(f"Name: {name}\nBalance: ${balance}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}")
         case "balance":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
             await message.reply(f"Balance: ${get_user_balance(chat, user):,}.")
@@ -218,7 +220,24 @@ async def callback(_, query: CallbackQuery):
             UPDATE group_{fixed_chat_id}
             SET {"wins" if won else "losses"} = ?
             WHERE user_id = ?
+        ''', (cursor.fetchone()[0] + 1, user.id)) 
+        
+        cursor.execute(f'''
+            SELECT {"win_streak" if won else "loss_streak"}
+            FROM group_{fixed_chat_id}
+            WHERE user_id = ?
+        ''', (user.id,))
+        cursor.execute(f'''
+            UPDATE group_{fixed_chat_id}
+            SET {"win_streak" if won else "loss_streak"} = ?
+            WHERE user_id = ?
         ''', (cursor.fetchone()[0] + 1, user.id))
+        cursor.execute(f'''
+            UPDATE group_{fixed_chat_id}
+            SET {"win_streak" if not won else "loss_streak"} = ?
+            WHERE user_id = ?
+        ''', (0, user.id))
+        
         conn.commit()
 
         await query.answer(text)
