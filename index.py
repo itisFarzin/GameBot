@@ -160,7 +160,7 @@ async def message(_, message: Message):
             that_user = message.reply_to_message.from_user
             that_user_balance = get_user_value(chat, that_user, "balance")
             update_user_value(chat, that_user, "balance", that_user_balance + amount)
-            await message.reply(f"You gifted {that_user.first_name} ${amount}.")
+            await message.reply(f"You gifted {that_user.first_name} ${amount:,}.")
         case "reset" if user_is_admin:
             if not message.reply_to_message:
                 await message.reply("You should reply to user that you want to delete their data.")
@@ -175,9 +175,9 @@ async def message(_, message: Message):
             if not amount:
                 await message.reply("/setbalance [amount]")
                 return
-            user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            update_user_value(chat, user, "balance", amount)
-            await message.reply(f"Set {user.first_name} balance to ${amount:,}")
+            that_user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
+            update_user_value(chat, that_user, "balance", amount)
+            await message.reply(f"Set {that_user.first_name} balance to ${amount:,}")
         case "addbalance"|"rmbalance" if user_is_admin:
             if not amount:
                 await message.reply("/addbalance|rmbalance [amount]")
@@ -186,10 +186,10 @@ async def message(_, message: Message):
             that_user_balance = get_user_value(chat, that_user, "balance")
             if action == "addbalance":
                 new_amount = that_user_balance + amount
-                text = f"Added ${amount} to {user.first_name}.\nNew balance: ${new_amount}."
+                text = f"Added ${amount} to {that_user.first_name}.\nNew balance: ${new_amount}."
             else:
                 new_amount = that_user_balance - amount
-                text = f"Removed ${amount} from {user.first_name}.\nNew balance: ${new_amount}."
+                text = f"Removed ${amount} from {that_user.first_name}.\nNew balance: ${new_amount}."
             update_user_value(chat, that_user, "balance", new_amount)
             await message.reply(text)
         case "leaderboard":
@@ -305,11 +305,9 @@ async def callback(_, query: CallbackQuery):
         return
     
     if chose == "cancel":
-        text = f"You canceled this game."
+        text = f"You canceled this game and you lost 25% of the money putted in the game."
         update_user_value(chat, user, "hand", "")
-        update_user_value(chat, user, "balance", user_balance + amount)
-        return
-    if text:
+        update_user_value(chat, user, "balance", user_balance + (amount * 0.75))
         await query.answer(text)
         await query.edit_message_text(text)
         return
