@@ -58,13 +58,13 @@ def pay_loan(chat: Chat, user: User, amount: int):
     loan = get_user_value(chat, user, "loan")
 
     if amount > user_balance:
-        return "You dont have the money to pay the loan."
+        return "You dont have the money to pay the loan.", False
 
     update_user_value(chat, user, "loan", loan - amount if not amount == loan else 0)
     update_user_value(chat, user, "balance", user_balance - amount)
     if not amount == loan:
-        return f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay."
-    return f"You paid the ${loan} loan."
+        return f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay.", True
+    return f"You paid the ${loan} loan.", True
 
 def pay_loan_from_game(chat: Chat, user: User, win_amount: int):
     pay_amount = 0
@@ -75,7 +75,9 @@ def pay_loan_from_game(chat: Chat, user: User, win_amount: int):
         pay_amount = win_amount // 10
         if pay_amount > loan:
             pay_amount = loan
-        text = "\n\n" + pay_loan(chat, user, pay_amount)
+        res, status = pay_loan(chat, user, pay_amount)
+        if status:
+            text = "\n\n" + res
     return pay_amount, text
 
 def change_user_game_status(chat: Chat, user: User, won: bool):
@@ -234,7 +236,7 @@ async def message(_, message: Message):
                 return
             if amount > loan:
                 amount = loan
-            await message.reply(pay_loan(chat, user, amount))
+            await message.reply(pay_loan(chat, user, amount)[0])
         case "daily":
             today = datetime.utcnow().date()
             last_claim, streak = get_user_values(chat, user, "last_claim, claim_streak")
@@ -325,10 +327,11 @@ async def callback(_, query: CallbackQuery):
                 won = True
         if not won:
             text = f"You Lose ${amount:,}."
+        else:
+            pay_amount, res = pay_loan_from_game(chat, user, amount)
+            text += res
+            update_user_value(chat, user, "balance", (user_balance + (amount * 2) - pay_amount))
         change_user_game_status(chat, user, won)
-        pay_amount, res = pay_loan_from_game(chat, user, amount)
-        text += res
-        update_user_value(chat, user, "balance", (user_balance + amount - pay_amount) if won else (user_balance - amount))
 
         await query.answer(text)
         await query.edit_message_text(f'The wheel spins... and lands on {number} ({"even, black" if number % 2 == 0 else "odd, red"}).\n' + text)
@@ -373,22 +376,25 @@ async def callback(_, query: CallbackQuery):
             tie = False
             player_hand_value = calculate_hand_value(player_hand)
             dealer_hand_value = calculate_hand_value(dealer_hand)
+            while player_hand_value > dealer_hand_value:
+                dealer_hand.append(deck.pop())
+                dealer_hand_value = calculate_hand_value(dealer_hand)
             message_text = f"Player's hand: {', '.join(player_hand)} (Value: {calculate_hand_value(player_hand)})" + f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})"
-            if dealer_hand_value > 21:
+            if player_hand_value > 21:
+                text = "You busted! Dealer wins."
+            elif dealer_hand_value > 21:
                 text = "Dealer busted! You won!"
-                message_text += f"\n\n{text}"
                 won = True
             elif player_hand_value > dealer_hand_value:
                 text = "You won!"
-                message_text += f"\n\n{text}"
                 won = True
             elif player_hand_value < dealer_hand_value:
                 text = "Dealer wins!"
-                message_text += f"\n\n{text}"
             else:
                 text = "It's a tie!"
-                message_text += f"\n\n{text}"
                 tie = True
+            if text:
+                message_text += f"\n\n{text}"
             new_balance = user_balance
             if won:
                 pay_amount, res = pay_loan_from_game(chat, user, amount)
