@@ -112,7 +112,7 @@ app = Client("BetBot",
 
 COMMON_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily", "leaderboard"]
 ADMIN_COMMANDS = ["reset", "setbalance", "addbalance", "rmbalance"]
-GAME_COMMANDS = ["roulette", "blackjack", "slot"]
+GAME_COMMANDS = ["roulette", "blackjack", "slot", "dice"]
 
 @app.on_message(filters.command(COMMON_COMMANDS + ADMIN_COMMANDS + GAME_COMMANDS) & filters.group)
 async def message(_, message: Message):
@@ -205,10 +205,10 @@ async def message(_, message: Message):
             that_user_balance = get_user_value(chat, that_user, "balance")
             if action == "addbalance":
                 new_amount = that_user_balance + amount
-                text = f"Added ${amount} to {that_user.first_name}.\nNew balance: ${new_amount}."
+                text = f"Added ${amount} to {that_user.first_name}.\nNew balance: ${new_amount}"
             else:
                 new_amount = that_user_balance - amount
-                text = f"Removed ${amount} from {that_user.first_name}.\nNew balance: ${new_amount}."
+                text = f"Removed ${amount} from {that_user.first_name}.\nNew balance: ${new_amount}"
             update_user_value(chat, that_user, "balance", new_amount)
             await message.reply(text)
         case "leaderboard":
@@ -255,7 +255,7 @@ async def message(_, message: Message):
                 amount = loan
             await message.reply(pay_loan(chat, user, amount)[0])
         case "daily":
-            today = datetime.utcnow().date()
+            today = datetime.date()
             last_claim, streak = get_user_values(chat, user, "last_claim, claim_streak")
 
             if last_claim:
@@ -301,50 +301,71 @@ async def message(_, message: Message):
             update_user_value(chat, user, "hand", f"{' '.join(player_hand)}|{' '.join(dealer_hand)}")
             await message.reply(f"Player's hand: {', '.join(player_hand)} (Value: {calculate_hand_value(player_hand)})" +
                                 f"\nDealer's hand: {dealer_hand[0]}, '?'", reply_markup=InlineKeyboardMarkup(
-                                    [[InlineKeyboardButton("Hit", f"hit-{amount}"), InlineKeyboardButton("Stand", f"stand-{amount}")],
+                                    [[InlineKeyboardButton("Hit", f"blackjack-hit-{amount}"), InlineKeyboardButton("Stand", f"blackjack-stand-{amount}")],
                                      [InlineKeyboardButton("Cancel", f"cancel-{amount}")]]
                                 ))
         case "slot":
             if amount is None:
                 await message.reply("/slot [amount]")
                 return
-            text = "You lost."
+            text = "You Lost."
             double_emoji = False
             update_user_value(chat, user, "balance", user_balance - amount)
             slot = await app.send_dice(chat.id, "🎰", reply_to_message_id=message.id)
+            value = slot.dice.value
             await asyncio.sleep(2)
-            match slot.dice.value:
-                case 1|22|43|64:
-                    win = True
-                case 2|3|4|5|6|9|11|13|16|17|18|21|23|24|26|27|30|32|33|35|38|39|41|42|44|47|48|49|52|54|56|59|60|61|62|63:
-                    double_emoji = True
+            if value in [1, 22, 43, 64]:
+                win = True
+            elif value in [2, 3, 4, 6, 11, 16, 17, 21, 23, 24, 27, 32, 33, 38, 41, 42, 44, 48, 49, 54, 59, 61, 62, 63]:
+                double_emoji = True
+            elif value in [5, 9, 13, 18, 26, 30, 35, 39, 47, 52, 56, 60]:
+                double_emoji = True
             if double_emoji:
                 text = "Double Emoji, money refunded."
                 add_to_user_balance(chat, user, amount, False)
             elif win:
-                pay_amount, res = pay_loan_from_game(chat, user, amount)
                 add_to_user_balance(chat, user, amount, False)
                 amount = amount * {1: 2.5, 22: 2.5, 43: 3, 64: 3.5}[slot.dice.value]
+                pay_amount, res = pay_loan_from_game(chat, user, amount)
                 _, res2 = add_to_user_balance(chat, user, amount - pay_amount)
                 text = f"You Win ${amount:,}{res}{res2}"
             await slot.reply(text + f"\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
+        case "dice":
+            if amount is None:
+                await message.reply("/dice [amount]")
+                return
+            update_user_value(chat, user, "balance", user_balance - amount)
+            temp_list = []
+            keyboard = [[InlineKeyboardButton("Even", f"dice-even-{amount}"), InlineKeyboardButton("Odd", f"dice-odd-{amount}")],
+                        [InlineKeyboardButton("3 and below", f"dice-1upto3-{amount}"), InlineKeyboardButton("4 and above", f"dice-4upto6-{amount}")]]
+            for i in range(1, 7):
+                temp_list.append(InlineKeyboardButton(str(i), f"dice-{i}-{amount}"))
+            keyboard.append(temp_list)
+            keyboard.append([InlineKeyboardButton("Cancel", f"cancel-{amount}")])
+            await message.reply("Choose", reply_markup=InlineKeyboardMarkup(keyboard))
 
 @app.on_callback_query()
 async def callback(_, query: CallbackQuery):
     data = query.data
-    chat = query.message.chat
+    if not query.message:
+        return
+    message = query.message
+    chat = message.chat
     user = query.from_user
-    chose, amount = data.split("-")
+    datas = data.split("-")
+    if len(datas) == 2:
+        chose, amount = datas
+    else:
+        chose = None
+        game, chose, amount = datas
     amount = int(amount)
     text = None
     win = False
     user_balance = int(get_user_value(chat, user, "balance"))
 
-    if not query.message:
+    if not message.reply_to_message:
         return
-    if not query.message.reply_to_message:
-        return
-    if not query.message.reply_to_message.from_user.id == user.id:
+    if not message.reply_to_message.from_user.id == user.id:
         return
     
     if chose == "cancel":
@@ -355,9 +376,9 @@ async def callback(_, query: CallbackQuery):
         await query.edit_message_text(text)
         return
 
-    if chose in ["even", "odd", "red", "black", "cancel"]:
+    if game == "roulette":
         number = random.randrange(1, 36)
-        text = f"\nYou Lose ${amount:,}.\nYour current balance: ${user_balance:,}"
+        text = f"\nYou Lose ${amount:,}."
 
         if number % 2 == 0:
             if chose in ["even", "black"]:
@@ -366,16 +387,16 @@ async def callback(_, query: CallbackQuery):
             if chose in ["odd", "red"]:
                 win = True
         if win:
-            pay_amount, res = pay_loan_from_game(chat, user, amount)
             add_to_user_balance(chat, user, amount, False)
+            pay_amount, res = pay_loan_from_game(chat, user, amount)
             _, res2 = add_to_user_balance(chat, user, amount - pay_amount)
-            text = f"\nYou Win ${amount:,}.\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}{res}{res2}"
+            text = f"\nYou Win ${amount:,}{res}{res2}"
         change_user_game_status(chat, user, win)
 
         await query.answer(text)
-        await query.edit_message_text(f'The wheel spins... and lands on {number} ({"even, black" if number % 2 == 0 else "odd, red"}).' + text)
+        await query.edit_message_text(f'The wheel spins... and lands on {number} ({"even, black" if number % 2 == 0 else "odd, red"}).' + text + f"\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
     
-    if chose in ["hit", "stand"]:
+    if game == "blackjack":
         deck = list(BLACKJACK_CARDS.keys()) * 4
         random.shuffle(deck)
         hand = str(get_user_value(chat, user, "hand"))
@@ -399,8 +420,8 @@ async def callback(_, query: CallbackQuery):
                 return
             dealer_hand.append(deck.pop())
             if calculate_hand_value(dealer_hand) > 21:
-                pay_amount, res = pay_loan_from_game(chat, user, amount)
                 add_to_user_balance(chat, user, amount, False)
+                pay_amount, res = pay_loan_from_game(chat, user, amount)
                 _, res2 = add_to_user_balance(chat, user, amount - pay_amount)
                 await query.answer("You win!")
                 await query.edit_message_text(text + f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})\n\nYou win!\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}" + res + res2)
@@ -436,9 +457,9 @@ async def callback(_, query: CallbackQuery):
                 message_text += f"\n\n{text}"
             new_amount = 0
             if win:
+                add_to_user_balance(chat, user, amount, False)
                 pay_amount, res = pay_loan_from_game(chat, user, amount)
                 message_text += res
-                add_to_user_balance(chat, user, amount, False)
                 new_amount = amount - pay_amount
             if tie:
                 new_amount = amount
@@ -448,6 +469,35 @@ async def callback(_, query: CallbackQuery):
             _, res = add_to_user_balance(chat, user, new_amount, win)
             await query.answer(text)
             await query.edit_message_text(message_text + f"\nYour current balance: ${get_user_value(chat, user, 'balance'):,}" + res)
+
+    if game == "dice":
+        dice = await app.send_dice(chat.id, reply_to_message_id=message.id)
+        value = dice.dice.value
+        text = f"Dice value: {value}"
+        await asyncio.sleep(2.5)
+        match chose:
+            case "even" if value % 2 == 0:
+                win = True
+            case "odd" if value % 2 != 0:
+                win = True
+            case "1upto3" if value <= 3:
+                win = True
+            case "4upto6" if value >= 4:
+                win = True
+        if chose.isdigit() and int(chose) == value:
+            win = True
+        if win:
+            pay_amount, res = pay_loan_from_game(chat, user, amount)
+            add_to_user_balance(chat, user, amount, False)
+            multiplier = 0.5 if chose in ["even", "odd", "1upto3", "4upto6"] else 2
+            amount = int(amount * multiplier)
+            _, res2 = add_to_user_balance(chat, user, amount - pay_amount)
+            text += f"\nYou Win ${amount:,}{res}{res2}"
+        else:
+            text += "\nYou Lost."
+        await query.edit_message_text(text + f"\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
+        await asyncio.sleep(5)
+        await dice.delete()
 
 if __name__ == "__main__":
     print(BLUE + "BetBot by itisFarzin" + RESET)
