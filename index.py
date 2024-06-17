@@ -143,6 +143,8 @@ async def message(_, message: Message):
 
     user_balance = int(get_user_value(chat, user, "balance"))
     if amount:
+        for key, value in ({"k": "000", "m": "000000", "b": "000000000"}).items():
+            amount = amount.lower().replace(key, value)
         if not amount.isnumeric():
             await message.reply("The amount should be a positive number.")
             return
@@ -159,7 +161,7 @@ async def message(_, message: Message):
         case "info":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
             _, name, balance, wins, losses, win_streak, loss_streak, loan, _, claim_streak, _ = get_user_values(chat, user, "*")
-            await message.reply(f"Name: {name}\nBalance: ${balance:,}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}\nLoan: ${loan}\nClaim Streak: {claim_streak}")
+            await message.reply(f"Name: {name}\nBalance: ${int(balance):,}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}\nLoan: ${loan}\nClaim Streak: {claim_streak}")
         case "balance":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
             await message.reply(f"Balance: ${get_user_value(chat, user, 'balance'):,}.")
@@ -442,7 +444,7 @@ async def callback(_, query: CallbackQuery):
             update_user_value(chat, user, "hand", "")
             _, res = add_to_user_balance(chat, user, new_amount, win)
             await query.answer(text)
-            await query.edit_message_text(message_text + f"\nYour current balance: ${get_user_value(chat, user, 'balance'):,}." + res)
+            await query.edit_message_text(message_text + f"\nYour current balance: ${get_user_value(chat, user, 'balance'):,}" + res)
 
 if __name__ == "__main__":
     print(BLUE + "BetBot by itisFarzin" + RESET)
