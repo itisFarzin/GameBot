@@ -1,6 +1,7 @@
 import os
 import random
 import sqlite3
+import asyncio
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from pyrogram import Client, filters
@@ -14,7 +15,7 @@ cursor = conn.cursor()
 OWNER_ID = int(os.getenv("OWNER_ID"))
 START_MONEY = int(os.getenv("START_MONEY", 1000))
 LOAN_LIMIT = int(os.getenv("LOAN_LIMIT", 1000))
-FEE = os.getenv("FEE", "true").lower() in ["true", "1"]
+TAX = os.getenv("TAX", "true").lower() in ["true", "1"]
 BLUE = '\033[34m'
 RESET = '\033[0m'
 
@@ -54,12 +55,12 @@ def get_user_values(chat: Chat, user: User, key: str):
 def get_user_value(chat: Chat, user: User, key: str):
     return get_user_values(chat, user, key)[0]
 
-def add_to_user_balance(chat: Chat, user: User, amount: int, fee: bool = FEE):
-    if fee:
+def add_to_user_balance(chat: Chat, user: User, amount: int, tax: bool = TAX):
+    if tax:
         update_user_value(chat, app.me, "balance", get_user_value(chat, app.me, "balance") + (amount * 0.1))
-    new_value = amount * 0.9 if fee else amount
+    new_value = amount * 0.9 if tax else amount
     update_user_value(chat, user, "balance", get_user_value(chat, user, "balance") + new_value)
-    return int(new_value), "\nYou paid 10% fee." if fee else ""
+    return int(new_value), "\nYou paid 10% in taxes." if tax else ""
 
 def pay_loan(chat: Chat, user: User, amount: int):
     user_balance = get_user_value(chat, user, "balance")
@@ -109,9 +110,11 @@ app = Client("BetBot",
             api_hash=os.getenv("API_HASH"),
             bot_token=os.getenv("BOT_TOKEN"))
 
-GAMES = ["roulette", "blackjack"]
+COMMON_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily", "leaderboard"]
+ADMIN_COMMANDS = ["reset", "setbalance", "addbalance", "rmbalance"]
+GAME_COMMANDS = ["roulette", "blackjack", "slot"]
 
-@app.on_message(filters.command(["info", "balance", "gift", "reset", "setbalance", "addbalance", "rmbalance", "leaderboard", "loan", "repay", "daily", "roulette", "blackjack"]) & filters.group)
+@app.on_message(filters.command(COMMON_COMMANDS + ADMIN_COMMANDS + GAME_COMMANDS) & filters.group)
 async def message(_, message: Message):
     chat = message.chat
     user = message.from_user
@@ -119,6 +122,7 @@ async def message(_, message: Message):
     amount = message.command[1] if len(message.command) > 1 else None
     fixed_chat_id = fix_id(chat.id)
     user_is_admin = user.id == OWNER_ID
+    win = False
 
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS group_{fixed_chat_id} (
@@ -143,7 +147,7 @@ async def message(_, message: Message):
             await message.reply("The amount should be a positive number.")
             return
         amount = int(amount)
-        if action in GAMES + ["gift"]:
+        if action in GAME_COMMANDS + ["gift"]:
             if amount == 0:
                 await message.reply("The amount can't be zero.")
                 return
@@ -295,6 +299,30 @@ async def message(_, message: Message):
                                     [[InlineKeyboardButton("Hit", f"hit-{amount}"), InlineKeyboardButton("Stand", f"stand-{amount}")],
                                      [InlineKeyboardButton("Cancel", f"cancel-{amount}")]]
                                 ))
+        case "slot":
+            if not amount:
+                await message.reply("/slot [amount]")
+                return
+            text = "You lost."
+            double_emoji = False
+            update_user_value(chat, user, "balance", user_balance - amount)
+            slot = await app.send_dice(chat.id, "🎰", reply_to_message_id=message.id)
+            await asyncio.sleep(2)
+            match slot.dice.value:
+                case 1|22|43|64:
+                    win = True
+                case 2|3|4|5|6|9|11|13|16|17|18|21|23|24|26|27|30|32|33|35|38|39|41|42|44|47|48|49|52|54|56|59|60|61|62|63:
+                    double_emoji = True
+            if double_emoji:
+                text = "Double Emoji, money refunded."
+                add_to_user_balance(chat, user, amount, False)
+            elif win:
+                pay_amount, res = pay_loan_from_game(chat, user, amount)
+                add_to_user_balance(chat, user, amount, False)
+                amount = amount * {1: 2.5, 22: 2.5, 43: 3, 64: 3.5}[slot.dice.value]
+                _, res2 = add_to_user_balance(chat, user, amount - pay_amount)
+                text = f"You Win ${amount:,}{res}{res2}"
+            await slot.reply(text + f"\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
 
 @app.on_callback_query()
 async def callback(_, query: CallbackQuery):
