@@ -119,7 +119,7 @@ async def message(_, message: Message):
     chat = message.chat
     user = message.from_user
     action = message.command[0]
-    amount = message.command[1] if len(message.command) > 1 else None
+    amount = message.command[1].lower() if len(message.command) > 1 else None
     fixed_chat_id = fix_id(chat.id)
     user_is_admin = user.id == OWNER_ID
     win = False
@@ -143,12 +143,15 @@ async def message(_, message: Message):
 
     user_balance = int(get_user_value(chat, user, "balance"))
     if amount:
-        for key, value in ({"k": "000", "m": "000000", "b": "000000000"}).items():
-            amount = amount.lower().replace(key, value)
-        if not amount.isnumeric():
+        human_readable_number = {"k": 1000, "m": 1000000, "b": 1000000000}
+        try:
+            for key, value in human_readable_number.items():
+                if key in str(amount):
+                    amount = float(amount.replace(key, "")) * value
+            amount = int(float(amount))
+        except:
             await message.reply("The amount should be a positive number.")
             return
-        amount = int(amount)
         if action in GAME_COMMANDS + ["gift"]:
             if amount == 0:
                 await message.reply("The amount can't be zero.")
@@ -166,7 +169,7 @@ async def message(_, message: Message):
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
             await message.reply(f"Balance: ${get_user_value(chat, user, 'balance'):,}.")
         case "gift":
-            if not amount:
+            if amount is None:
                 await message.reply("/gift [amount]")
                 return
             if not message.reply_to_message:
@@ -188,14 +191,14 @@ async def message(_, message: Message):
             ''', (user.id,))
             await message.reply(f"Removed {user.first_name} data successfully.")
         case "setbalance" if user_is_admin:
-            if not amount:
+            if amount is None:
                 await message.reply("/setbalance [amount]")
                 return
             that_user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
             update_user_value(chat, that_user, "balance", amount)
             await message.reply(f"Set {that_user.first_name} balance to ${amount:,}")
         case "addbalance"|"rmbalance" if user_is_admin:
-            if not amount:
+            if amount is None:
                 await message.reply("/addbalance|rmbalance [amount]")
                 return
             that_user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
@@ -221,7 +224,7 @@ async def message(_, message: Message):
                 text += f"{i}. {name}: ${int(balance):,}\n"
             await message.reply(text)
         case "loan":
-            if not amount:
+            if amount is None:
                 await message.reply("/loan [amount]")
                 return
             if amount == 0:
@@ -243,7 +246,7 @@ async def message(_, message: Message):
             if loan == 0:
                 await message.reply("You dont have loan to pay.")
                 return
-            if not amount:
+            if amount is None:
                 amount = loan
             if amount == 0:
                 await message.reply("Pay amount can't be zero.")
@@ -277,7 +280,7 @@ async def message(_, message: Message):
 
             await message.reply(f"You've received ${reward} as your daily reward! Your current streak is {streak} days.\nYour new balance is ${user_balance + reward:,}" + text)
         case "roulette":
-            if not amount:
+            if amount is None:
                 await message.reply("/roulette [amount]")
                 return
             update_user_value(chat, user, "balance", user_balance - amount)
@@ -287,7 +290,7 @@ async def message(_, message: Message):
                  [InlineKeyboardButton("Cancel", f"cancel-{amount}")]]
             ))
         case "blackjack":
-            if not amount:
+            if amount is None:
                 await message.reply("/blackjack [amount]")
                 return
             update_user_value(chat, user, "balance", user_balance - amount)
@@ -302,7 +305,7 @@ async def message(_, message: Message):
                                      [InlineKeyboardButton("Cancel", f"cancel-{amount}")]]
                                 ))
         case "slot":
-            if not amount:
+            if amount is None:
                 await message.reply("/slot [amount]")
                 return
             text = "You lost."
