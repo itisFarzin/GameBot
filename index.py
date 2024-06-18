@@ -2,6 +2,8 @@ import os
 import random
 import sqlite3
 import asyncio
+import json
+import requests
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from pyrogram import Client, filters
@@ -18,6 +20,8 @@ LOAN_LIMIT = int(os.getenv("LOAN_LIMIT", 1000))
 TAX = os.getenv("TAX", "true").lower() in ["true", "1"]
 BLUE = '\033[34m'
 RESET = '\033[0m'
+CRYPTO = os.getenv("CRYPTO")
+CRYPTO_DATA = 'crypto_data.json'
 
 BLACKJACK_CARDS = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10, 'A': 11}
 
@@ -89,6 +93,42 @@ def pay_loan_from_game(chat: Chat, user: User, win_amount: int):
             text = "\n\n" + res
     return pay_amount, text
 
+def read_json():
+    try:
+        with open(CRYPTO_DATA, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {"users": {}}
+
+def write_json(data):
+    with open(CRYPTO_DATA, 'w') as file:
+        json.dump(data, file, indent=4)
+
+def get_crypto_price(symbol):
+    url = f"https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol={symbol}"
+    headers = {
+        "Accepts": "application/json",
+        "X-CMC_PRO_API_KEY": CRYPTO,
+    }
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if 'data' in data and symbol in data['data']:
+        return data["data"][symbol]["quote"]["USD"]["price"]
+    else:
+        return None
+
+def get_user_crypto(user_id):
+    data = read_json()
+    if str(user_id) not in data["users"]:
+        data["users"][str(user_id)] = {"cryptos": {}}
+        write_json(data)
+    return data["users"][str(user_id)]
+
+def update_user_crypto(user_id, user_data):
+    data = read_json()
+    data["users"][str(user_id)] = user_data
+    write_json(data)
+
 def change_user_game_status(chat: Chat, user: User, win: bool):
     res = get_user_value(chat, user, "wins" if win else "losses")
     update_user_value(chat, user, "wins" if win else "losses", int(res) + 1)
@@ -110,7 +150,7 @@ app = Client("BetBot",
             api_hash=os.getenv("API_HASH"),
             bot_token=os.getenv("BOT_TOKEN"))
 
-COMMON_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily", "leaderboard"]
+COMMON_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily", "leaderboard", "buycrypto", "sellcrypto", "cryptoprice", "wallet"]
 ADMIN_COMMANDS = ["reset", "setbalance", "addbalance", "rmbalance"]
 GAME_COMMANDS = ["roulette", "blackjack", "slot"]
 
@@ -118,6 +158,7 @@ GAME_COMMANDS = ["roulette", "blackjack", "slot"]
 async def message(_, message: Message):
     chat = message.chat
     user = message.from_user
+    user_id = message.from_user.id
     action = message.command[0]
     amount = message.command[1].lower() if len(message.command) > 1 else None
     fixed_chat_id = fix_id(chat.id)
@@ -279,6 +320,62 @@ async def message(_, message: Message):
             update_user_value(chat, user, "claim_streak", streak)
 
             await message.reply(f"You've received ${reward} as your daily reward! Your current streak is {streak} days.\nYour new balance is ${user_balance + reward:,}" + text)
+        case "buycrypto"|"sellcrypto"|"cryptoprice":
+            if amount is None:
+                await message.reply("/buycrypto | /sellcrypto [amount] [crypto name]")
+                return
+            if amount == 0:
+                await message.reply("the amount can't be zero")
+            if len(message.command) == 2:
+                await message.reply("/buycrypto | /sellcrypto [amount] [crypto name]")
+                return
+            if len(message.command) > 3:
+                await message.reply("/buycrypto | /sellcrypto [amount] [crypto name]")
+                return
+            crypto = message.command[2].upper() 
+            user_data = get_user_crypto(user_id)
+            if action == "buycrypto":
+                crypto_price = get_crypto_price(crypto)
+                if crypto_price == None:
+                    await message.reply(f"No crypto found with the name {crypto}")
+                    return
+                total_cost = amount * crypto_price
+                balance = get_user_value(chat, user, "balance")
+                if balance < total_cost:
+                    await message.reply(f"Insufficient balance to buy this amount of crypto.\nYou need ${total_cost}")
+                    return
+                if crypto in user_data["cryptos"]:
+                    user_data["cryptos"][crypto] += amount
+                else:
+                    user_data["cryptos"][crypto] = amount
+                update_user_value(chat, user, "balance", user_balance - total_cost)
+                update_user_crypto(user_id, user_data)
+                await message.reply(f"You bought {amount} {crypto} for ${total_cost}")
+            elif action == "sellcrypto":
+                if crypto in user_data["cryptos"] and user_data["cryptos"][crypto] >= amount:
+                    crypto_price = get_crypto_price(crypto)
+                    total_gain = amount * crypto_price
+                    user_data["cryptos"][crypto] -= amount
+
+                    if user_data["cryptos"][crypto] == 0:
+                        del user_data["cryptos"][crypto]
+
+                    add_to_user_balance(chat, user, total_gain) 
+                    update_user_crypto(user_id, user_data)
+                    await message.reply(f"Successfully sold {amount} {crypto.upper()} for ${total_gain:.2f}")
+                else:
+                    await message.reply("Insufficient crypto balance to sell this amount.")
+            elif action == "cryptoprice":
+                crypto_price = get_crypto_price(crypto)
+                total = amount * crypto_price
+                await message.reply(f"1 {crypto} = {crypto_price}\n\n{amount} {crypto} = {total}")
+        case "wallet":
+            user_data = get_user_crypto(user_id)
+            cryptos = user_data.get("cryptos", {})
+            if not cryptos:
+                return "Your wallet is empty."
+            wallet_contents = "\n".join([f"{crypto}: {amount}" for crypto, amount in cryptos.items()])
+            await message.reply(f"Your wallet:\n{wallet_contents}")
         case "roulette":
             if amount is None:
                 await message.reply("/roulette [amount]")
@@ -450,6 +547,6 @@ async def callback(_, query: CallbackQuery):
             await query.edit_message_text(message_text + f"\nYour current balance: ${get_user_value(chat, user, 'balance'):,}" + res)
 
 if __name__ == "__main__":
-    print(BLUE + "BetBot by itisFarzin" + RESET)
+    print(BLUE + "BetBot by itisFarzin and Rodstor" + RESET)
     app.run()
     conn.close()
