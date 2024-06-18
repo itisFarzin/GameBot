@@ -57,10 +57,10 @@ def get_user_value(chat: Chat, user: User, key: str):
 
 def add_to_user_balance(chat: Chat, user: User, amount: int, tax: bool = TAX):
     if tax:
-        update_user_value(chat, app.me, "balance", get_user_value(chat, app.me, "balance") + (amount * 0.1))
-    new_value = amount * 0.9 if tax else amount
+        update_user_value(chat, app.me, "balance", get_user_value(chat, app.me, "balance") + (amount * 0.05))
+    new_value = amount * 0.95 if tax else amount
     update_user_value(chat, user, "balance", get_user_value(chat, user, "balance") + new_value)
-    return int(new_value), " (You paid 10% in taxes)" if tax else ""
+    return int(new_value), " (You paid 5% in taxes)" if tax else ""
 
 def pay_loan(chat: Chat, user: User, amount: int):
     user_balance = get_user_value(chat, user, "balance")
