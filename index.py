@@ -110,9 +110,9 @@ app = Client("BetBot",
             api_hash=os.getenv("API_HASH"),
             bot_token=os.getenv("BOT_TOKEN"))
 
-COMMON_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily", "leaderboard"]
+COMMON_COMMANDS = ["help", "info", "balance", "gift", "loan", "repay", "daily", "leaderboard", "lb"]
 ADMIN_COMMANDS = ["reset", "setbalance", "addbalance", "rmbalance"]
-GAME_COMMANDS = ["roulette", "blackjack", "slot", "dice"]
+GAME_COMMANDS = ["roulette", "rl", "blackjack", "bj", "slot", "dice"]
 
 @app.on_message(filters.command(COMMON_COMMANDS + ADMIN_COMMANDS + GAME_COMMANDS) & filters.group)
 async def message(_, message: Message):
@@ -143,7 +143,7 @@ async def message(_, message: Message):
 
     user_balance = int(get_user_value(chat, user, "balance"))
     if amount:
-        human_readable_number = {"k": 1000, "m": 1000000, "b": 1000000000}
+        human_readable_number = {"k": 1000, "m": 1000000, "b": 1000000000, "t": 1000000000000}
         try:
             for key, value in human_readable_number.items():
                 if key in str(amount):
@@ -161,6 +161,30 @@ async def message(_, message: Message):
                 return
 
     match action:
+        case "help":
+            await message.reply(f"""
+**Game Commands**:
+/roulette ║ /rl [amount] | play roulette
+/blackjack ║ /bj [amount] | play blackjack
+/slot [amount] | play slot machine
+/dice [amount] | play dice
+                                
+**Common Commands**:
+/info | Shows information of a user
+/balance | Shows the balance of a user
+/gift [amount] * | gift some money to a user
+/leaderboard ║ /lb | Shows the highest balance of the group
+/loan [amount] | maximum loan is ${LOAN_LIMIT:,}
+/repay [amount] | repay your loan
+/daily | check back everyday to get some cash
+
+**Admin Only Commands**:
+/setbalance [amount] * | set the balance of a user
+/addbalance [amount] * | add some money to a user's balance
+/rmbalance [amount] * | remove some money from a user's balance
+/reset * | reset users data
+
+* must reply to a user""")
         case "info":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
             _, name, balance, wins, losses, win_streak, loss_streak, loan, _, claim_streak, _ = get_user_values(chat, user, "*")
@@ -211,7 +235,7 @@ async def message(_, message: Message):
                 text = f"Removed ${amount} from {that_user.first_name}.\nNew balance: ${new_amount:,}"
             update_user_value(chat, that_user, "balance", new_amount)
             await message.reply(text)
-        case "leaderboard":
+        case "leaderboard"|"lb":
             text = "Leaderboard:\n"
             cursor.execute(f'''
                 SELECT name, balance
@@ -279,7 +303,7 @@ async def message(_, message: Message):
             update_user_value(chat, user, "claim_streak", streak)
 
             await message.reply(f"You've received ${reward}{text} as your daily reward! Your current streak is {streak} days.\nYour new balance is ${user_balance + reward:,}")
-        case "roulette":
+        case "roulette"|"rl":
             if amount is None:
                 await message.reply("/roulette [amount]")
                 return
@@ -289,7 +313,7 @@ async def message(_, message: Message):
                  [InlineKeyboardButton("Red", f"roulette-red-{amount}"), InlineKeyboardButton("Black", f"roulette-black-{amount}")],
                  [InlineKeyboardButton("Cancel", f"cancel-{amount}")]]
             ))
-        case "blackjack":
+        case "blackjack"|"bj":
             if amount is None:
                 await message.reply("/blackjack [amount]")
                 return
@@ -499,6 +523,6 @@ async def callback(_, query: CallbackQuery):
         await dice.delete()
 
 if __name__ == "__main__":
-    print(BLUE + "BetBot by itisFarzin" + RESET)
+    print(BLUE + "BetBot by itisFarzin and Rodstor" + RESET)
     app.run()
     conn.close()
