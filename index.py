@@ -73,7 +73,7 @@ def pay_loan(chat: Chat, user: User, amount: int):
     update_user_value(chat, user, "loan", loan - amount if not amount == loan else 0)
     update_user_value(chat, user, "balance", new_balance)
     if not amount == loan:
-        return f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay.\nYour current balance: ${new_balance:,}", True
+        return f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay.", True
     return f"You paid the ${loan:,} loan", True
 
 def pay_loan_from_game(chat: Chat, user: User, win_amount: int):
@@ -137,7 +137,8 @@ async def message(_, message: Message):
             loan BIGINT DEFAULT 0,
             last_claim DATE,
             claim_streak INTEGER DEFAULT 0,
-            hand TEXT DEFAULT ""
+            hand TEXT DEFAULT "",
+            in_game BOOLEAN DEFAULT FALSE
         )
     ''')
     conn.commit()
@@ -188,7 +189,7 @@ async def message(_, message: Message):
 * must reply to a user""")
         case "info":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            _, name, balance, wins, losses, win_streaks, loss_streaks, loan, _, claim_streak, _ = get_user_values(chat, user, "*")
+            name, balance, wins, losses, win_streaks, loss_streaks, loan, claim_streak = get_user_values(chat, user, "name, balance, wins, losses, win_streaks, loss_streaks, loan, claim_streak")
             await message.reply(f"Name: {name}\nBalance: ${int(balance):,}\nWins: {wins}\nLosses: {losses}\nWin Streaks: {win_streaks}\nLoss Streaks: {loss_streaks}\nLoan: ${loan}\nClaim Streak: {claim_streak}")
         case "balance":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
@@ -281,7 +282,8 @@ async def message(_, message: Message):
                 return
             if amount > loan:
                 amount = loan
-            await message.reply(pay_loan(chat, user, amount)[0])
+            loan_info = pay_loan(chat, user, amount)
+            await message.reply(loan_info[0] + f"\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
         case "daily":
             today = datetime.now(timezone.utc).date()
             last_claim, streak = get_user_values(chat, user, "last_claim, claim_streak")
@@ -312,6 +314,7 @@ async def message(_, message: Message):
                 await message.reply("/roulette [amount]")
                 return
             update_user_value(chat, user, "balance", user_balance - amount)
+            update_user_value(chat, user, "in_game", True)
             await message.reply("Choose", reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Even", f"roulette-even-{amount}"), InlineKeyboardButton("Odd", f"roulette-odd-{amount}")],
                  [InlineKeyboardButton("Red", f"roulette-red-{amount}"), InlineKeyboardButton("Black", f"roulette-black-{amount}")],
@@ -322,6 +325,7 @@ async def message(_, message: Message):
                 await message.reply("/blackjack [amount]")
                 return
             update_user_value(chat, user, "balance", user_balance - amount)
+            update_user_value(chat, user, "in_game", True)
             deck = list(BLACKJACK_CARDS.keys()) * 4
             random.shuffle(deck)
             player_hand = [deck.pop(), deck.pop()]
@@ -363,12 +367,13 @@ async def message(_, message: Message):
                 await message.reply("/dice [amount]")
                 return
             update_user_value(chat, user, "balance", user_balance - amount)
-            temp_list = []
+            update_user_value(chat, user, "in_game", True)
+            buttons = []
             keyboard = [[InlineKeyboardButton("Even", f"dice-even-{amount}"), InlineKeyboardButton("Odd", f"dice-odd-{amount}")],
                         [InlineKeyboardButton("3 and below", f"dice-1upto3-{amount}"), InlineKeyboardButton("4 and above", f"dice-4upto6-{amount}")]]
             for i in range(1, 7):
-                temp_list.append(InlineKeyboardButton(str(i), f"dice-{i}-{amount}"))
-            keyboard.append(temp_list)
+                buttons.append(InlineKeyboardButton(str(i), f"dice-{i}-{amount}"))
+            keyboard.append(buttons)
             keyboard.append([InlineKeyboardButton("Cancel", f"cancel-{amount}")])
             await message.reply("Choose", reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -402,6 +407,7 @@ async def callback(_, query: CallbackQuery):
         text = f"You canceled this game and you lost 25% of the money putted in the game."
         update_user_value(chat, user, "hand", "")
         add_to_user_balance(chat, user, amount * 0.75, False)
+        update_user_value(chat, user, "in_game", False)
         await query.answer(text)
         await query.edit_message_text(text)
         return
@@ -431,6 +437,13 @@ async def callback(_, query: CallbackQuery):
                             buttons[i:i + 3] for i in range(0, len(buttons), 3)
                         ))
 
+    if get_user_value(chat, user, "in_game") == "0":
+        try:
+            await query.edit_message_reply_markup()
+        except:
+            pass
+        return
+
     elif game == "roulette":
         number = random.randrange(1, 36)
         text = f"\nYou Lost ${amount:,}"
@@ -447,6 +460,7 @@ async def callback(_, query: CallbackQuery):
             new_amount, res = add_to_user_balance(chat, user, amount - pay_amount)
             text = f"\nYou Win ${new_amount:,}{res}{res2}"
         change_user_game_status(chat, user, win)
+        update_user_value(chat, user, "in_game", False)
 
         await query.answer(text)
         await query.edit_message_text(f"The wheel spins... and lands on {number} ({'even, black' if number % 2 == 0 else 'odd, red'}).{text}\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
@@ -471,6 +485,7 @@ async def callback(_, query: CallbackQuery):
                 await query.answer("You busted! Dealer wins.")
                 await query.edit_message_text(text + f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})\n\nYou busted! Dealer wins.\nYour current balance: ${user_balance:,}")
                 change_user_game_status(chat, user, False)
+                update_user_value(chat, user, "in_game", False)
                 update_user_value(chat, user, "hand", "")
                 return
             dealer_hand.append(deck.pop())
@@ -481,6 +496,7 @@ async def callback(_, query: CallbackQuery):
                 await query.answer("You win!")
                 await query.edit_message_text(text + f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})\n\nYou win ${new_amount:,}{res}{res2}\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
                 change_user_game_status(chat, user, True)
+                update_user_value(chat, user, "in_game", False)
                 update_user_value(chat, user, "hand", "")
                 return
             update_user_value(chat, user, "hand", f"{' '.join(player_hand)}|{' '.join(dealer_hand)}")
@@ -521,6 +537,7 @@ async def callback(_, query: CallbackQuery):
             else:
                 change_user_game_status(chat, user, win)
             update_user_value(chat, user, "hand", "")
+            update_user_value(chat, user, "in_game", False)
             await query.answer(text)
             await query.edit_message_text(message_text + f"\nYour current balance: ${get_user_value(chat, user, 'balance'):,}")
 
@@ -550,6 +567,7 @@ async def callback(_, query: CallbackQuery):
         else:
             text += "\nYou Lost."
         change_user_game_status(chat, user, win)
+        update_user_value(chat, user, "in_game", False)
         await query.edit_message_text(text + f"\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
         await asyncio.sleep(5)
         await dice.delete()

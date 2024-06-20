@@ -13,8 +13,7 @@ for group in cursor.fetchall():
         cursor.execute("DROP TABLE groups")
         continue
     print(f"Updrading group {group.split('_')[1]} datas")
-    cursor.execute(f'''ALTER TABLE {group} RENAME COLUMN win_streak TO win_streaks''')
-    cursor.execute(f'''ALTER TABLE {group} RENAME COLUMN loss_streak TO loss_streaks''')
+    cursor.execute(f'''ALTER TABLE {group} ADD COLUMN in_game TEXT DEFAULT ""''')
 conn.commit()
 print("Done")
 
