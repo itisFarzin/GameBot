@@ -68,12 +68,13 @@ def pay_loan(chat: Chat, user: User, amount: int):
 
     if amount > user_balance:
         return "You dont have the money to pay the loan.", False
+    new_balance = user_balance - amount
 
     update_user_value(chat, user, "loan", loan - amount if not amount == loan else 0)
-    update_user_value(chat, user, "balance", user_balance - amount)
+    update_user_value(chat, user, "balance", new_balance)
     if not amount == loan:
-        return f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay.", True
-    return f"You paid the ${loan} loan.", True
+        return f"You paid ${amount} of the loan.\nYou have ${loan - amount} left to pay.\nYour current balance: ${new_balance:,}", True
+    return f"You paid the ${loan:,} loan", True
 
 def pay_loan_from_game(chat: Chat, user: User, win_amount: int):
     pay_amount = 0
@@ -93,9 +94,9 @@ def change_user_game_status(chat: Chat, user: User, win: bool):
     res = get_user_value(chat, user, "wins" if win else "losses")
     update_user_value(chat, user, "wins" if win else "losses", int(res) + 1)
 
-    res = get_user_value(chat, user, "win_streak" if win else "loss_streak")
-    update_user_value(chat, user, "win_streak" if win else "loss_streak", int(res) + 1)
-    update_user_value(chat, user, "win_streak" if not win else "loss_streak", 0)
+    res = get_user_value(chat, user, "win_streaks" if win else "loss_streaks")
+    update_user_value(chat, user, "win_streaks" if win else "loss_streaks", int(res) + 1)
+    update_user_value(chat, user, "win_streaks" if not win else "loss_streaks", 0)
 
 def calculate_hand_value(hand: list):
     value = sum(BLACKJACK_CARDS[card] for card in hand)
@@ -131,8 +132,8 @@ async def message(_, message: Message):
             balance BIGINT DEFAULT {START_MONEY},
             wins INTEGER DEFAULT 0,
             losses INTEGER DEFAULT 0,
-            win_streak INTEGER DEFAULT 0,
-            loss_streak INTEGER DEFAULT 0,
+            win_streaks INTEGER DEFAULT 0,
+            loss_streaks INTEGER DEFAULT 0,
             loan BIGINT DEFAULT 0,
             last_claim DATE,
             claim_streak INTEGER DEFAULT 0,
@@ -173,7 +174,7 @@ async def message(_, message: Message):
 /info | Shows information of a user
 /balance | Shows the balance of a user
 /gift [amount] * | gift some money to a user
-/leaderboard ║ /lb | Shows the highest balance of the group
+/leaderboard ║ /lb | Shows the leaderboard of the group
 /loan [amount] | maximum loan is ${LOAN_LIMIT:,}
 /repay [amount] | repay your loan
 /daily | check back everyday to get some cash
@@ -187,11 +188,11 @@ async def message(_, message: Message):
 * must reply to a user""")
         case "info":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            _, name, balance, wins, losses, win_streak, loss_streak, loan, _, claim_streak, _ = get_user_values(chat, user, "*")
-            await message.reply(f"Name: {name}\nBalance: ${int(balance):,}\nWins: {wins}\nLosses: {losses}\nWin Streak: {win_streak}\nLoss Streak: {loss_streak}\nLoan: ${loan}\nClaim Streak: {claim_streak}")
+            _, name, balance, wins, losses, win_streaks, loss_streaks, loan, _, claim_streak, _ = get_user_values(chat, user, "*")
+            await message.reply(f"Name: {name}\nBalance: ${int(balance):,}\nWins: {wins}\nLosses: {losses}\nWin Streaks: {win_streaks}\nLoss Streaks: {loss_streaks}\nLoan: ${loan}\nClaim Streak: {claim_streak}")
         case "balance":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            await message.reply(f"Balance: ${get_user_value(chat, user, 'balance'):,}.")
+            await message.reply(f"Balance: ${get_user_value(chat, user, 'balance'):,}")
         case "gift":
             if amount is None:
                 await message.reply("/gift [amount]")
@@ -246,7 +247,10 @@ async def message(_, message: Message):
             for i, data in enumerate(cursor.fetchall(), start=1):
                 name, balance = data
                 text += f"{i}. {name}: ${int(balance):,}\n"
-            await message.reply(text)
+            await message.reply(text, reply_markup=InlineKeyboardMarkup(
+                                    [[InlineKeyboardButton("• Balance", "leaderboard-balance"), InlineKeyboardButton("◦ Wins", "leaderboard-wins"), InlineKeyboardButton("◦ Losses", "leaderboard-losses")],
+                                     [InlineKeyboardButton("◦ Win Streaks", "leaderboard-win_streaks"), InlineKeyboardButton("◦ Loss Streaks", "leaderboard-loss_streaks")]]
+                                ))
         case "loan":
             if amount is None:
                 await message.reply("/loan [amount]")
@@ -264,7 +268,7 @@ async def message(_, message: Message):
             update_user_value(chat, user, "loan", amount)
             add_to_user_balance(chat, user, amount, False)
             conn.commit()
-            await message.reply(f"You have been granted a loan of ${amount}. It has been added to your balance.")
+            await message.reply(f"You have been granted a loan of ${amount:,}\nIt has been added to your balance.")
         case "repay":
             loan = get_user_value(chat, user, "loan")
             if loan == 0:
@@ -375,14 +379,16 @@ async def callback(_, query: CallbackQuery):
         return
     message = query.message
     chat = message.chat
+    chat_id = fix_id(chat.id)
     user = query.from_user
     datas = data.split("-")
     if len(datas) == 2:
         chose, amount = datas
+        game = None
     else:
-        chose = None
         game, chose, amount = datas
-    amount = int(amount)
+    if amount.isdigit():
+        amount = int(amount)
     text = None
     win = False
     user_balance = int(get_user_value(chat, user, "balance"))
@@ -400,9 +406,34 @@ async def callback(_, query: CallbackQuery):
         await query.edit_message_text(text)
         return
 
-    if game == "roulette":
+    elif chose == "leaderboard":
+        lb_type = amount
+
+        text = "Leaderboard:\n"
+        cursor.execute(f'''
+            SELECT name, {lb_type}
+            FROM group_{chat_id}
+            ORDER BY {lb_type} DESC
+            LIMIT 10
+        ''')
+        for i, info in enumerate(cursor.fetchall(), start=1):
+            name, data = info
+            if lb_type == "balance":
+                data = f"${int(data):,}"
+            else:
+                data = f"{int(data):,}"
+            text += f"{i}. {name}: {data}\n"
+        buttons = []
+        keys = ["balance", "wins", "losses", "win_streaks", "loss_streaks"]
+        for key in keys:
+            buttons.append(InlineKeyboardButton(f"{'•' if key == lb_type else '◦'} {key.replace('_', ' ').title()}", f"leaderboard-{key}"))
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(
+                            buttons[i:i + 3] for i in range(0, len(buttons), 3)
+                        ))
+
+    elif game == "roulette":
         number = random.randrange(1, 36)
-        text = f"\nYou Lose ${amount:,}"
+        text = f"\nYou Lost ${amount:,}"
 
         if number % 2 == 0:
             if chose in ["even", "black"]:
@@ -420,7 +451,7 @@ async def callback(_, query: CallbackQuery):
         await query.answer(text)
         await query.edit_message_text(f"The wheel spins... and lands on {number} ({'even, black' if number % 2 == 0 else 'odd, red'}).{text}\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
     
-    if game == "blackjack":
+    elif game == "blackjack":
         deck = list(BLACKJACK_CARDS.keys()) * 4
         random.shuffle(deck)
         hand = str(get_user_value(chat, user, "hand"))
@@ -493,7 +524,7 @@ async def callback(_, query: CallbackQuery):
             await query.answer(text)
             await query.edit_message_text(message_text + f"\nYour current balance: ${get_user_value(chat, user, 'balance'):,}")
 
-    if game == "dice":
+    elif game == "dice":
         dice = await app.send_dice(chat.id, reply_to_message_id=message.id)
         value = dice.dice.value
         text = f"Dice value: {value}"
@@ -518,6 +549,7 @@ async def callback(_, query: CallbackQuery):
             text += f"\nYou Win ${new_amount:,}{res}{res2}"
         else:
             text += "\nYou Lost."
+        change_user_game_status(chat, user, win)
         await query.edit_message_text(text + f"\nYour current balance: ${int(get_user_value(chat, user, 'balance')):,}")
         await asyncio.sleep(5)
         await dice.delete()
