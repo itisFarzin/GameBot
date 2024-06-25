@@ -53,10 +53,10 @@ async def user_commands(client: BetBot, message: Message):
                 await message.reply(f"Loan amount can't exceed ${client.LOAN_LIMIT:,}")
                 return
             loan = message.get_user_value("loan")
-            if loan == client.LOAN_LIMIT:
+            if loan >= client.LOAN_LIMIT:
                 await message.reply("You have loan to repay.\nUse /repay to pay it now.")
                 return
-            if loan > client.LOAN_LIMIT:
+            if loan < client.LOAN_LIMIT:
                 amount = client.LOAN_LIMIT - loan
             message.update_user_value("loan", loan + amount)
             message.add_to_user_balance(amount, False, False)
@@ -101,6 +101,6 @@ async def user_commands(client: BetBot, message: Message):
             message.update_user_value("last_claim", today)
             message.update_user_value("claim_streak", streak)
 
-            await message.reply(f"You've received ${reward:,}{text} as your daily reward!" +
+            await message.reply(f"You've received ${reward:,} as your daily reward! {text}" +
                                 f"\nYour current streak is {streak} days."
                                 f"\nYour new balance is ${message.user_balance:,}")

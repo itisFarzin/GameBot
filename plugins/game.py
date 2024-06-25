@@ -97,36 +97,20 @@ async def game_commands(app: BetBot, message: Message):
             await message.reply("Choose", reply_markup=InlineKeyboardMarkup(keyboard))
         case "basketball" | "bb":
             message.remove_from_user_balance(amount)
-            basketball = await app.send_dice(chat.id, "🏀")
-            value = basketball.dice.value
-            await asyncio.sleep(4.5)
-            if value in [4, 5]:
-                message.change_user_game_status(True)
-                multiplier = 1 if value == 4 else 2
-                new_amount, res = message.add_to_user_balance(amount + (amount * multiplier))
-                text = f"\nYou Win ${new_amount:,}{res}"
-            else:
-                message.change_user_game_status(False)
-                text = f"\nYou Lost ${amount:,}"
-            await message.reply(text + f"\nYour current balance: ${message.user_balance:,}")
-            await asyncio.sleep(5)
-            await basketball.delete()
+            message.update_user_value("in_game", True)
+            await message.reply("Choose", reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Inside of the basketball net", f"basketball-inside-{amount}"),
+                  InlineKeyboardButton("Outside of the basketball net", f"basketball-outside-{amount}")],
+                 [InlineKeyboardButton("Cancel", f"cancel-{amount}")]]
+            ))
         case "football" | "fb":
             message.remove_from_user_balance(amount)
-            football = await app.send_dice(chat.id, "⚽")
-            value = football.dice.value
-            await asyncio.sleep(4.5)
-            if value in [3, 4, 5]:
-                message.change_user_game_status(True)
-                multiplier = 1 if value in [4, 3] else 2
-                new_amount, res = message.add_to_user_balance(amount + (amount * multiplier))
-                text = f"\nYou Win ${new_amount:,}{res}"
-            else:
-                message.change_user_game_status(False)
-                text = f"\nYou Lost ${amount:,}"
-            await message.reply(text + f"\nYour current balance: ${message.user_balance:,}")
-            await asyncio.sleep(5)
-            await football.delete()
+            message.update_user_value("in_game", True)
+            await message.reply("Choose", reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Inside the football goal", f"football-inside-{amount}"),
+                  InlineKeyboardButton("Outside the football goal", f"football-outside-{amount}")],
+                 [InlineKeyboardButton("Cancel", f"cancel-{amount}")]]
+            ))
         case "dart":
             message.remove_from_user_balance(amount)
             message.update_user_value("in_game", True)
@@ -137,7 +121,7 @@ async def game_commands(app: BetBot, message: Message):
             await message.reply("Choose", reply_markup=InlineKeyboardMarkup(keyboard))
 
 
-@BetBot.on_callback_query(filters.regex("(cancel|roulette|blackjack|dice|dart)\-(\w+)?-?(\w+)?"))
+@BetBot.on_callback_query(filters.regex("(cancel|roulette|blackjack|dice|basketball|football|dart)\-(\w+)?-?(\w+)?"))
 async def game_callback(app: BetBot, query: CallbackQuery):
     if not query.message:
         return
@@ -161,7 +145,6 @@ async def game_callback(app: BetBot, query: CallbackQuery):
         query.update_user_value("hand", "")
         query.add_to_user_balance(amount * 0.75, False)
         query.update_user_value("in_game", False)
-        await query.answer(text)
         await query.edit_message_text(text)
         return
 
@@ -170,149 +153,188 @@ async def game_callback(app: BetBot, query: CallbackQuery):
         return
     query.update_user_value("in_game", False)
 
-    if game == "roulette":
-        number = random.randrange(1, 36)
-        text = f"\nYou Lost ${amount:,}"
+    match game:
+        case "roulette":
+            number = random.randrange(1, 36)
+            text = f"\nYou Lost ${amount:,}"
 
-        if number % 2 == 0:
-            if choose in ["even", "black"]:
-                win = True
-        else:
-            if choose in ["odd", "red"]:
-                win = True
-        if win:
-            new_amount, res = query.add_to_user_balance(amount * 2)
-            text = f"\nYou Win ${new_amount:,}{res}"
-        query.change_user_game_status(win)
-
-        await query.answer(text)
-        await query.edit_message_text(
-            f"The wheel spins... and lands on {number} ({'even, black' if number % 2 == 0 else 'odd, red'}).{text}" +
-            f"\nYour current balance: ${query.user_balance:,}")
-
-    elif game == "blackjack":
-        deck = list(BLACKJACK_CARDS.keys()) * 4
-        random.shuffle(deck)
-        hand = str(query.get_user_value("hand"))
-        if len(hand) == 0:
-            await query.answer("Game ended.")
-            await query.edit_message_text("Game ended.")
-            return
-        player_hand, dealer_hand = hand.split("|")
-        player_hand = player_hand.split()
-        dealer_hand = dealer_hand.split()
-        for card in player_hand + dealer_hand:
-            deck.pop(deck.index(card))
-        if choose == "hit":
-            player_hand.append(deck.pop())
-            text = f"Your hand: {', '.join(player_hand)} (Value: {calculate_hand_value(player_hand)})"
-            if calculate_hand_value(player_hand) > 21:
-                await query.answer("You busted! Dealer wins.")
-                await query.edit_message_text(
-                    text + f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})" +
-                    f"\n\nYou busted! Dealer wins.\nYour current balance: ${query.user_balance:,}")
-                query.change_user_game_status(False)
-                query.update_user_value("hand", "")
-                return
-            query.update_user_value("hand", f"{' '.join(player_hand)}|{' '.join(dealer_hand)}")
-            query.update_user_value("in_game", True)
-            await query.edit_message_text(text + f"\nDealer's hand: {dealer_hand[0]}, '?'",
-                                          reply_markup=InlineKeyboardMarkup(
-                                              [[InlineKeyboardButton("Hit", f"blackjack-hit-{amount}"),
-                                                InlineKeyboardButton("Stand", f"blackjack-stand-{amount}")]]
-                                          ))
-        else:
-            tie = False
-            player_hand_value = calculate_hand_value(player_hand)
-            dealer_hand_value = calculate_hand_value(dealer_hand)
-            while dealer_hand_value < 17:
-                dealer_hand.append(deck.pop())
-                dealer_hand_value = calculate_hand_value(dealer_hand)
-            message_text = (f"Player's hand: {', '.join(player_hand)} (Value: {calculate_hand_value(player_hand)})" +
-                            f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})")
-            if player_hand_value > 21:
-                text = "You busted! Dealer wins."
-            elif dealer_hand_value > 21:
-                text = "Dealer busted! You win"
-                win = True
-            elif player_hand_value > dealer_hand_value:
-                text = "You win"
-                win = True
-            elif player_hand_value < dealer_hand_value:
-                text = "Dealer wins!"
+            if number % 2 == 0:
+                if choose in ["even", "black"]:
+                    win = True
             else:
-                text = "It's a tie!"
-                tie = True
-            if text:
-                message_text += f"\n\n{text}"
+                if choose in ["odd", "red"]:
+                    win = True
             if win:
                 new_amount, res = query.add_to_user_balance(amount * 2)
-                message_text += f" ${new_amount:,}{res}"
-            if tie:
-                query.add_to_user_balance(amount, False)
-            else:
-                query.change_user_game_status(win)
-            query.update_user_value("hand", "")
-            await query.answer(text)
+                text = f"\nYou Win ${new_amount:,}{res}"
+            query.change_user_game_status(win)
+
             await query.edit_message_text(
-                message_text + f"\nYour current balance: ${query.user_balance:,}")
+                f"The wheel spins... and lands on {number} ({'even, black' if number % 2 == 0 else 'odd, red'}).{text}" +
+                f"\nYour current balance: ${query.user_balance:,}")
 
-    elif game == "dice":
-        dice = await app.send_dice(chat.id, reply_to_message_id=query.message.id)
-        await query.edit_message_text("Wait...")
-        value = dice.dice.value
-        text = f"Dice value: {value}"
-        await asyncio.sleep(2.5)
-        match choose:
-            case "even" if value % 2 == 0:
-                win = True
-            case "odd" if value % 2 != 0:
-                win = True
-            case "1to3" if value <= 3:
-                win = True
-            case "4to6" if value >= 4:
-                win = True
-        if choose.isdigit() and int(choose) == value:
-            win = True
-        if win:
-            multiplier = 1 if choose in ["even", "odd", "1to3", "4to6"] else 2.5
-            new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
-            text += f"\nYou Win ${new_amount:,}{res}"
-        else:
-            text += f"\nYou Lost ${amount:,}"
-        query.change_user_game_status(win)
-        await query.edit_message_text(text + f"\nYour current balance: ${query.user_balance:,}")
-        await asyncio.sleep(5)
-        await dice.delete()
+        case "blackjack":
+            deck = list(BLACKJACK_CARDS.keys()) * 4
+            random.shuffle(deck)
+            hand = str(query.get_user_value("hand"))
+            if len(hand) == 0:
+                await query.edit_message_text("Game ended.")
+                return
+            player_hand, dealer_hand = hand.split("|")
+            player_hand = player_hand.split()
+            dealer_hand = dealer_hand.split()
+            for card in player_hand + dealer_hand:
+                deck.pop(deck.index(card))
+            if choose == "hit":
+                player_hand.append(deck.pop())
+                text = f"Your hand: {', '.join(player_hand)} (Value: {calculate_hand_value(player_hand)})"
+                if calculate_hand_value(player_hand) > 21:
+                    await query.edit_message_text(
+                        text + f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})" +
+                        f"\n\nYou busted! Dealer wins.\nYour current balance: ${query.user_balance:,}")
+                    query.change_user_game_status(False)
+                    query.update_user_value("hand", "")
+                    return
+                query.update_user_value("hand", f"{' '.join(player_hand)}|{' '.join(dealer_hand)}")
+                query.update_user_value("in_game", True)
+                await query.edit_message_text(text + f"\nDealer's hand: {dealer_hand[0]}, '?'",
+                                              reply_markup=InlineKeyboardMarkup(
+                                                  [[InlineKeyboardButton("Hit", f"blackjack-hit-{amount}"),
+                                                    InlineKeyboardButton("Stand", f"blackjack-stand-{amount}")]]
+                                              ))
+            else:
+                tie = False
+                player_hand_value = calculate_hand_value(player_hand)
+                dealer_hand_value = calculate_hand_value(dealer_hand)
+                while dealer_hand_value < 17:
+                    dealer_hand.append(deck.pop())
+                    dealer_hand_value = calculate_hand_value(dealer_hand)
+                message_text = (f"Player's hand: {', '.join(player_hand)} (Value: {calculate_hand_value(player_hand)})" +
+                                f"\nDealer's hand: {', '.join(dealer_hand)} (Value: {calculate_hand_value(dealer_hand)})")
+                if player_hand_value > 21:
+                    text = "You busted! Dealer wins."
+                elif dealer_hand_value > 21:
+                    text = "Dealer busted! You win"
+                    win = True
+                elif player_hand_value > dealer_hand_value:
+                    text = "You win"
+                    win = True
+                elif player_hand_value < dealer_hand_value:
+                    text = "Dealer wins!"
+                else:
+                    text = "It's a tie!"
+                    tie = True
+                if text:
+                    message_text += f"\n\n{text}"
+                if win:
+                    new_amount, res = query.add_to_user_balance(amount * 2)
+                    message_text += f" ${new_amount:,}{res}"
+                if tie:
+                    query.add_to_user_balance(amount, False)
+                else:
+                    query.change_user_game_status(win)
+                query.update_user_value("hand", "")
+                await query.edit_message_text(
+                    message_text + f"\nYour current balance: ${query.user_balance:,}")
 
-    elif game == "dart":
-        dart = await app.send_dice(chat.id, "🎯", reply_to_message_id=query.message.id)
-        await query.edit_message_text("Wait...")
-        value = dart.dice.value
-        text = f"You missed"
-        match value:
-            case 2 | 3 | 4 | 5:
-                text = "You hit the {} row ({})".format({2: "first", 3: "second", 4: "third", 5: "fourth"}[value],
-                                                        "Red" if value in [2, 4] else "White")
-            case 6:
-                text = f"You hit the center"
-        await asyncio.sleep(3)
-        match choose:
-            case "red" if value in [2, 4]:
+        case "dice":
+            dice = await app.send_dice(chat.id, reply_to_message_id=query.message.id)
+            await query.edit_message_text("Wait...")
+            value = dice.dice.value
+            text = f"Dice value: {value}"
+            await asyncio.sleep(2.5)
+            match choose:
+                case "even" if value % 2 == 0:
+                    win = True
+                case "odd" if value % 2 != 0:
+                    win = True
+                case "1to3" if value <= 3:
+                    win = True
+                case "4to6" if value >= 4:
+                    win = True
+            if choose.isdigit() and int(choose) == value:
                 win = True
-            case "white" if value in [3, 5]:
-                win = True
-            case "center" if value == 6:
-                win = True
-        if win:
-            multiplier = 1 if choose in ["red", "white"] else 2.5
-            new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
-            text += f"\nYou Win ${new_amount:,}{res}"
-        else:
-            text += f"\nYou Lost ${amount:,}"
-            if choose == "red" and value == 6:
-                text += " (for the game being fair, the red center dont count as red)"
-        query.change_user_game_status(win)
-        await query.edit_message_text(text + f"\nYour current balance: ${query.user_balance:,}")
-        await asyncio.sleep(5)
-        await dart.delete()
+            if win:
+                multiplier = 1 if choose in ["even", "odd", "1to3", "4to6"] else 2.5
+                new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
+                text += f"\nYou Win ${new_amount:,}{res}"
+            else:
+                text += f"\nYou Lost ${amount:,}"
+            query.change_user_game_status(win)
+            await query.edit_message_text(text + f"\nYour current balance: ${query.user_balance:,}")
+            await asyncio.sleep(5)
+            await dice.delete()
+
+        case "dart":
+            dart = await app.send_dice(chat.id, "🎯", reply_to_message_id=query.message.id)
+            await query.edit_message_text("Wait...")
+            value = dart.dice.value
+            text = f"You missed"
+            match value:
+                case 2 | 3 | 4 | 5:
+                    text = "You hit the {} row ({})".format({2: "first", 3: "second", 4: "third", 5: "fourth"}[value],
+                                                            "Red" if value in [2, 4] else "White")
+                case 6:
+                    text = f"You hit the center"
+            await asyncio.sleep(3)
+            match choose:
+                case "red" if value in [2, 4]:
+                    win = True
+                case "white" if value in [3, 5]:
+                    win = True
+                case "center" if value == 6:
+                    win = True
+            if win:
+                multiplier = 1 if choose in ["red", "white"] else 2.5
+                new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
+                text += f"\nYou Win ${new_amount:,}{res}"
+            else:
+                text += f"\nYou Lost ${amount:,}"
+                if choose == "red" and value == 6:
+                    text += " (for the game being fair, the red center dont count as red)"
+            query.change_user_game_status(win)
+            await query.edit_message_text(text + f"\nYour current balance: ${query.user_balance:,}")
+            await asyncio.sleep(5)
+            await dart.delete()
+
+        case "basketball":
+            basketball = await app.send_dice(chat.id, "🏀")
+            value = basketball.dice.value
+            await asyncio.sleep(4.5)
+            match choose:
+                case "inside" if value in [4, 5]:
+                    win = True
+                case "outside" if value in [1, 2, 3]:
+                    win = True
+            if win:
+                query.change_user_game_status(True)
+                multiplier = 1 if value == 4 else 2
+                new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
+                text = f"\nYou Win ${new_amount:,}{res}"
+            else:
+                query.change_user_game_status(False)
+                text = f"\nYou Lost ${amount:,}"
+            await query.edit_message_text(text + f"\nYour current balance: ${query.user_balance:,}")
+            await asyncio.sleep(5)
+            await basketball.delete()
+
+        case "football":
+            football = await app.send_dice(chat.id, "⚽")
+            value = football.dice.value
+            await asyncio.sleep(4.5)
+            match choose:
+                case "inside" if value in [3, 4, 5]:
+                    win = True
+                case "outside" if value in [1, 2]:
+                    win = True
+            if win:
+                query.change_user_game_status(True)
+                multiplier = 1 if value in [4, 3] else 1.5
+                new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
+                text = f"\nYou Win ${new_amount:,}{res}"
+            else:
+                query.change_user_game_status(False)
+                text = f"\nYou Lost ${amount:,}"
+            await query.edit_message_text(text + f"\nYour current balance: ${query.user_balance:,}")
+            await asyncio.sleep(5)
+            await football.delete()
