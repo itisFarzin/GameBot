@@ -1,5 +1,5 @@
 from pyrogram import enums
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.orm import Session
 
 from betbot import BetBot, filters
@@ -50,20 +50,21 @@ if you want to play games, use /help to see what games we have and how to play t
 
 * must reply to a user""")
         case "leaderboard" | "lb" if message.chat.type in {enums.ChatType.GROUP, enums.ChatType.SUPERGROUP}:
-            text = "Leaderboard (Balance):\n"
+            text = "Leaderboard (Trophies):\n"
             with Session(client.engine) as session:
                 results = session.execute(
                     select(UserDatabase)
-                    .order_by(UserDatabase.balance.desc())
+                    .order_by(UserDatabase.trophies.desc())
                     .limit(10)
                 ).all()
                 for i, result in enumerate(results, start=1):
                     result = result[0]
-                    text += f"{i}. {result.name}: ${round(result.balance):,}\n"
+                    text += f"{i}. {result.name}: {round(result.trophies):,}\n"
                 await message.reply(text, reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("• Balance", "leaderboard-balance"),
+                    [[InlineKeyboardButton("◦ Balance", "leaderboard-balance"),
                       InlineKeyboardButton("◦ Wins", "leaderboard-wins"),
                       InlineKeyboardButton("◦ Losses", "leaderboard-losses")],
+                     [InlineKeyboardButton("• Trophies", "leaderboard-trophies")],
                      [InlineKeyboardButton("◦ Highest Win Streaks", "leaderboard-highest_win_streaks"),
                       InlineKeyboardButton("◦ Highest Loss Streaks", "leaderboard-highest_loss_streaks")]]
                 ))
@@ -82,10 +83,18 @@ async def common_callback(client: BetBot, query: CallbackQuery):
         return
 
     text = f"Leaderboard ({lb_type.replace('_', ' ').title()}):\n"
+    column_mapping = {
+        "balance": UserDatabase.balance,
+        "wins": UserDatabase.wins,
+        "losses": UserDatabase.losses,
+        "trophies": UserDatabase.trophies,
+        "highest_win_streaks": UserDatabase.highest_win_streaks,
+        "highest_loss_streaks": UserDatabase.highest_loss_streaks,
+    }
     with Session(client.engine) as session:
         results = session.execute(
             select(UserDatabase)
-            .order_by(UserDatabase.balance.desc())
+            .order_by(desc(column_mapping.get(lb_type)))
             .limit(10)
         ).all()
         for i, result in enumerate(results, start=1):
@@ -96,10 +105,9 @@ async def common_callback(client: BetBot, query: CallbackQuery):
                 data = f"{int(getattr(result, lb_type)):,}"
             text += f"{i}. {result.name}: {data}\n"
         buttons = []
-        keys = ["balance", "wins", "losses", "highest_win_streaks", "highest_loss_streaks"]
-        for key in keys:
+        for key in column_mapping.keys():
             buttons.append(InlineKeyboardButton(f"{'•' if key == lb_type else '◦'} {key.replace('_', ' ').title()}",
                                                 f"leaderboard-{key}"))
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(
-            [buttons[0:3]] + [buttons[3:5]]
+            [buttons[0:3]] + [buttons[3:4]] + [buttons[4:6]]
         ))
