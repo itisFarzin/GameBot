@@ -101,10 +101,12 @@ async def game_commands(app: BetBot, message: Message):
             value = basketball.dice.value
             await asyncio.sleep(4.5)
             if value in [4, 5]:
+                message.change_user_game_status(True)
                 multiplier = 1 if value == 4 else 2
                 new_amount, res = message.add_to_user_balance(amount + (amount * multiplier))
                 text = f"\nYou Win ${new_amount:,}{res}"
             else:
+                message.change_user_game_status(False)
                 text = f"\nYou Lost ${amount:,}"
             await message.reply(text + f"\nYour current balance: ${message.user_balance:,}")
             await asyncio.sleep(5)
@@ -115,10 +117,12 @@ async def game_commands(app: BetBot, message: Message):
             value = football.dice.value
             await asyncio.sleep(4.5)
             if value in [3, 4, 5]:
+                message.change_user_game_status(True)
                 multiplier = 1 if value in [4, 3] else 2
                 new_amount, res = message.add_to_user_balance(amount + (amount * multiplier))
                 text = f"\nYou Win ${new_amount:,}{res}"
             else:
+                message.change_user_game_status(False)
                 text = f"\nYou Lost ${amount:,}"
             await message.reply(text + f"\nYour current balance: ${message.user_balance:,}")
             await asyncio.sleep(5)
