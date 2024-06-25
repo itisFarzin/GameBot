@@ -232,7 +232,7 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                 if text:
                     message_text += f"\n\n{text}"
                 if win:
-                    new_amount, res = query.add_to_user_balance(amount * 2)
+                    new_amount, res = query.add_to_user_balance(amount * 2.5)
                     message_text += f" ${new_amount:,}{res}"
                 if tie:
                     query.add_to_user_balance(amount, False)
@@ -292,7 +292,7 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                 case "center" if value == 6:
                     win = True
             if win:
-                multiplier = 1 if choose in ["red", "white"] else 2.5
+                multiplier = 0.5 if choose in ["red", "white"] else 1.5
                 new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
                 text += f"\nYou Win ${new_amount:,}{res}"
             else:
@@ -315,7 +315,7 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                     win = True
             if win:
                 query.change_user_game_status(True)
-                multiplier = 1 if value == 4 else 2
+                multiplier = 1 if value == 5 else 0.5
                 new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
                 text = f"\nYou Win ${new_amount:,}{res}"
             else:
@@ -336,7 +336,7 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                     win = True
             if win:
                 query.change_user_game_status(True)
-                multiplier = 1 if value in [4, 3] else 1.5
+                multiplier = 0.5 if value in [4, 3] else 1
                 new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
                 text = f"\nYou Win ${new_amount:,}{res}"
             else:

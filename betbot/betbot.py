@@ -21,7 +21,10 @@ class BetBot(pyrogram.Client):
     SUDO_COMMANDS = ["addadmin", "rmadmin", "admins"]
     ADMIN_COMMANDS = ["reset", "setbalance", "addbalance", "rmbalance"]
     COMMON_COMMANDS = ["start", "help", "leaderboard", "lb"]
-    GAME_COMMANDS = ["roulette", "rl", "blackjack", "bj", "slot", "dice", "basketball", "bb", "football", "fb", "dart"]
+    EASY_GAMES = ["basketball", "bb", "football", "fb", "dart", "dice"]
+    NORMAL_GAMES = ["slot", "roulette", "rl"]
+    HARD_GAMES = ["blackjack", "bj"]
+    GAME_COMMANDS = EASY_GAMES + NORMAL_GAMES + HARD_GAMES
     USER_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily"]
 
     def __init__(self, plugins_folder: str = "plugins"):
