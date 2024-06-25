@@ -15,6 +15,7 @@ class BetBot(pyrogram.Client):
 
     OWNER_ID = int(os.getenv("OWNER_ID"))
     LOAN_LIMIT = int(os.getenv("LOAN_LIMIT", 10000))
+    GAME_AMOUNT_LIMIT = int(os.getenv("GAME_AMOUNT_LIMIT", 500000))
     TAX = os.getenv("TAX", "true").lower() in ["true", "1"]
 
     SUDO_COMMANDS = ["addadmin", "rmadmin", "admins"]

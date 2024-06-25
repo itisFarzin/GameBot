@@ -19,7 +19,7 @@ def calculate_hand_value(hand: list):
 
 
 @BetBot.on_message(filters.command(BetBot.GAME_COMMANDS) & filters.group)
-async def game_commands(app: BetBot, message: Message):
+async def game_commands(client: BetBot, message: Message):
     chat = message.chat
     action = message.command[0]
     amount = message.amount
@@ -32,6 +32,9 @@ async def game_commands(app: BetBot, message: Message):
         return
     if not message.has_enough_money(amount):
         await message.reply("You dont have this amount of money.")
+        return
+    if amount > client.GAME_AMOUNT_LIMIT:
+        await message.reply(f"Amount of money you put in a game can't exceed ${client.GAME_AMOUNT_LIMIT}")
         return
     win = False
 
@@ -65,7 +68,7 @@ async def game_commands(app: BetBot, message: Message):
             text = f"You Lost ${amount:,}"
             double_emoji = False
             message.remove_from_user_balance(amount)
-            slot = await app.send_dice(chat.id, "🎰", reply_to_message_id=message.id)
+            slot = await client.send_dice(chat.id, "🎰", reply_to_message_id=message.id)
             value = slot.dice.value
             await asyncio.sleep(2)
             if value in [1, 22, 43, 64]:
@@ -122,7 +125,7 @@ async def game_commands(app: BetBot, message: Message):
 
 
 @BetBot.on_callback_query(filters.regex("(cancel|roulette|blackjack|dice|basketball|football|dart)\-(\w+)?-?(\w+)?"))
-async def game_callback(app: BetBot, query: CallbackQuery):
+async def game_callback(client: BetBot, query: CallbackQuery):
     if not query.message:
         return
     chat = query.message.chat
@@ -242,7 +245,7 @@ async def game_callback(app: BetBot, query: CallbackQuery):
                 await query.message.delete()
 
         case "dice":
-            dice = await app.send_dice(chat.id, reply_to_message_id=query.message.id)
+            dice = await client.send_dice(chat.id, reply_to_message_id=query.message.id)
             await query.edit_message_text("Wait...")
             value = dice.dice.value
             text = f"Dice value: {value}"
@@ -270,7 +273,7 @@ async def game_callback(app: BetBot, query: CallbackQuery):
             await dice.delete()
 
         case "dart":
-            dart = await app.send_dice(chat.id, "🎯", reply_to_message_id=query.message.id)
+            dart = await client.send_dice(chat.id, "🎯", reply_to_message_id=query.message.id)
             await query.edit_message_text("Wait...")
             value = dart.dice.value
             text = f"You missed"
@@ -302,7 +305,7 @@ async def game_callback(app: BetBot, query: CallbackQuery):
             await dart.delete()
 
         case "basketball":
-            basketball = await app.send_dice(chat.id, "🏀")
+            basketball = await client.send_dice(chat.id, "🏀")
             value = basketball.dice.value
             await asyncio.sleep(4.5)
             match choose:
@@ -323,7 +326,7 @@ async def game_callback(app: BetBot, query: CallbackQuery):
             await basketball.delete()
 
         case "football":
-            football = await app.send_dice(chat.id, "⚽")
+            football = await client.send_dice(chat.id, "⚽")
             value = football.dice.value
             await asyncio.sleep(4.5)
             match choose:
