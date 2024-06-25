@@ -116,20 +116,6 @@ class UserMethods:
             return loan_left, f"You paid ${int(amount):,} of the loan.\nYou have ${int(loan_left):,} left to pay.", True
         return loan_left, f"You paid the ${loan:,} loan.", True
 
-    def pay_loan_from_game(self, win_amount: int):
-        pay_amount = 0
-        loan = self.get_user_value("loan")
-        text = ""
-
-        if not loan == 0:
-            pay_amount = win_amount // 10
-            if pay_amount > loan:
-                pay_amount = loan
-            loan_left, res, status = self.pay_loan(pay_amount)
-            if status:
-                text = "\n\n" + res
-        return pay_amount, text
-
     def change_user_game_status(self, win: bool):
         res = self.get_user_value("wins" if win else "losses")
         self.update_user_value("wins" if win else "losses", res + 1)
@@ -139,14 +125,14 @@ class UserMethods:
             res = self.get_user_value("highest_win_streaks")
             res2 = self.get_user_value("win_streaks")
             if res2 >= res:
-                self.update_user_value("highest_win_streaks", res + 1)
+                self.update_user_value("highest_win_streaks", res2)
             trophies += random.randrange(10, 15)
             self.update_user_value("trophies", trophies + random.randrange(10, 15))
         else:
             res = self.get_user_value("highest_loss_streaks")
             res2 = self.get_user_value("loss_streaks")
             if res2 >= res:
-                self.update_user_value("highest_loss_streaks", res + 1)
+                self.update_user_value("highest_loss_streaks", res2)
             self.update_user_value("trophies", trophies - random.randrange(5, 10))
         self.on_trophies_change()
 
