@@ -53,12 +53,10 @@ async def user_commands(client: BetBot, message: Message):
                 await message.reply(f"Loan amount can't exceed ${client.LOAN_LIMIT:,}")
                 return
             loan = message.get_user_value("loan")
-            if loan >= client.LOAN_LIMIT:
+            if loan != 0:
                 await message.reply("You have loan to repay.\nUse /repay to pay it now.")
                 return
-            if loan < client.LOAN_LIMIT:
-                amount = client.LOAN_LIMIT - loan
-            message.update_user_value("loan", loan + amount)
+            message.update_user_value("loan", amount)
             message.add_to_user_balance(amount, False, False)
             await message.reply(f"You have been granted a loan of ${amount:,}\nIt has been added to your balance."
                                 f"\nYour current balance: ${message.user_balance:,}")
