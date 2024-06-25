@@ -194,6 +194,8 @@ async def game_callback(app: BetBot, query: CallbackQuery):
                         f"\n\nYou busted! Dealer wins.\nYour current balance: ${query.user_balance:,}")
                     query.change_user_game_status(False)
                     query.update_user_value("hand", "")
+                    await asyncio.sleep(60)
+                    await query.message.delete()
                     return
                 query.update_user_value("hand", f"{' '.join(player_hand)}|{' '.join(dealer_hand)}")
                 query.update_user_value("in_game", True)
@@ -236,6 +238,8 @@ async def game_callback(app: BetBot, query: CallbackQuery):
                 query.update_user_value("hand", "")
                 await query.edit_message_text(
                     message_text + f"\nYour current balance: ${query.user_balance:,}")
+                await asyncio.sleep(60)
+                await query.message.delete()
 
         case "dice":
             dice = await app.send_dice(chat.id, reply_to_message_id=query.message.id)
@@ -338,3 +342,8 @@ async def game_callback(app: BetBot, query: CallbackQuery):
             await query.edit_message_text(text + f"\nYour current balance: ${query.user_balance:,}")
             await asyncio.sleep(5)
             await football.delete()
+
+    if game != "blackjack":
+        await asyncio.sleep(60)
+        await query.message.delete()
+
