@@ -90,7 +90,6 @@ class UserMethods:
             if status:
                 text += "\n\n" + res
                 new_value -= pay_amount
-                self.remove_from_user_balance(pay_amount)
 
         return int(new_value), text
 
