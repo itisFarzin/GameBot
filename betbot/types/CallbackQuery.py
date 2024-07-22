@@ -1,6 +1,7 @@
 import betbot
 import pyrogram
 from betbot import types
+from betbot.database import Config
 from pyrogram import enums
 from typing import Optional, Union
 from pyrogram.types import InlineKeyboardMarkup
@@ -14,7 +15,7 @@ class CallbackQuery(types.CustomUpdate, types.UserMethods, pyrogram.types.Callba
 
         if self.from_user:
             user_id = self.from_user.id
-            self.is_owner = user_id == client.OWNER_ID
+            self.is_owner = user_id == Config.OWNER_ID
 
     async def edit_message_reply_markup(self, reply_markup: InlineKeyboardMarkup | None = None):
         try:

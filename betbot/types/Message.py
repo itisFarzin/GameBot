@@ -5,7 +5,7 @@ from .CustomUpdate import CustomUpdate
 
 
 class Message(CustomUpdate, UserMethods, pyrogram.types.Message):
-    def __init__(self, client: "betbot.BetBot" = None, **kwargs):
+    def __init__(self, client: "betbot.BetBot", **kwargs):
         super().__init__(client=client, **kwargs)
 
     @property
@@ -26,7 +26,7 @@ class Message(CustomUpdate, UserMethods, pyrogram.types.Message):
         try:
             for key, value in human_readable_number.items():
                 if key in str(amount):
-                    amount = float(amount.replace(key, "")) * value
+                    amount = float(str(amount).replace(key, "")) * value
             amount = round(float(amount))
         except ValueError:
             return

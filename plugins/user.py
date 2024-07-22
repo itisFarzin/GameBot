@@ -2,11 +2,12 @@ import random
 
 from betbot import BetBot, filters
 from betbot.types import Message
+from betbot.database import Config
 from datetime import datetime, timezone, timedelta
 
 
-@BetBot.on_message(filters.command(BetBot.USER_COMMANDS))
-async def user_commands(client: BetBot, message: Message):
+@BetBot.on_message(filters.command(Config.USER_COMMANDS))
+async def user_commands(_: BetBot, message: Message):
     action = message.command[0]
     amount = message.amount
 
@@ -15,14 +16,14 @@ async def user_commands(client: BetBot, message: Message):
             _message = message.reply_to_message if message.reply_to_message else message
             (name, balance, wins, losses, loan,
              claim_streak, highest_win_streaks, highest_loss_streaks,
-             trophies) = _message.get_user_values(["name", "balance", "wins", "losses", "loan",
+             trophies, league) = _message.get_user_values(["name", "balance", "wins", "losses", "loan",
                                                    "claim_streak", "highest_win_streaks", "highest_loss_streaks",
-                                                   "trophies"])
+                                                   "trophies", "league"])
             await message.reply(
                 f"Name: {name}\nBalance: ${int(balance):,}\nWins: {wins}\nLosses: {losses}" +
                 f"\nLoan: ${loan:,}\nClaim Streak: {claim_streak}" +
                 f"\nHighest Win Streaks: {highest_win_streaks}\nHighest Loss Streaks: {highest_loss_streaks}"
-                f"\nTrophies: {trophies}")
+                f"\nTrophies: {trophies}\nLeague: {league}")
         case "balance":
             _message = message.reply_to_message if message.reply_to_message else message
             await message.reply(f"Balance: ${_message.user_balance:,}")
@@ -45,14 +46,14 @@ async def user_commands(client: BetBot, message: Message):
 
         case "loan":
             if amount is None:
-                amount = client.LOAN_LIMIT
+                amount = Config.LOAN_LIMIT
             if amount == 0:
                 await message.reply("Loan amount can't be zero.")
                 return
-            if amount > client.LOAN_LIMIT:
-                await message.reply(f"Loan amount can't exceed ${client.LOAN_LIMIT:,}")
+            if amount > Config.LOAN_LIMIT:
+                await message.reply(f"Loan amount can't exceed ${Config.LOAN_LIMIT:,}")
                 return
-            loan = message.get_user_value("loan")
+            loan = int(message.get_user_value("loan"))
             if loan != 0:
                 await message.reply("You have loan to repay.\nUse /repay to pay it now.")
                 return
@@ -61,7 +62,7 @@ async def user_commands(client: BetBot, message: Message):
             await message.reply(f"You have been granted a loan of ${amount:,}\nIt has been added to your balance."
                                 f"\nYour current balance: ${message.user_balance:,}")
         case "repay":
-            loan = message.get_user_value("loan")
+            loan = int(message.get_user_value("loan"))
             if loan == 0:
                 await message.reply("You dont have loan to pay.")
                 return

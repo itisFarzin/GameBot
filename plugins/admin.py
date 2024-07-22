@@ -2,15 +2,11 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 
 from betbot import BetBot, filters, types
-from betbot.database import AdminDatabase, UserDatabase
+from betbot.database import Config, AdminDatabase, UserDatabase
 
 
-def fix_id(chat_id: int):
-    return int(str(chat_id).replace("-", ""))
-
-
-@BetBot.on_message(filters.command(BetBot.SUDO_COMMANDS) & filters.is_owner)
-async def sudo_commands(client: BetBot, message: types.Message):
+@BetBot.on_message(filters.command(Config.SUDO_COMMANDS) & filters.is_owner)
+async def sudo_commands(_: BetBot, message: types.Message):
     action = message.command[0]
 
     match action:
@@ -20,7 +16,7 @@ async def sudo_commands(client: BetBot, message: types.Message):
                 return
             user = message.reply_to_message.from_user
 
-            with Session(client.engine) as session:
+            with Session(Config.engine) as session:
                 result = session.execute(select(AdminDatabase).where(AdminDatabase.id == user.id)).one_or_none()
                 if result is None:
                     session.add(
@@ -39,7 +35,7 @@ async def sudo_commands(client: BetBot, message: types.Message):
                 return
             user = message.reply_to_message.from_user
 
-            with Session(client.engine) as session:
+            with Session(Config.engine) as session:
                 result = session.execute(select(AdminDatabase).where(AdminDatabase.id == user.id)).one_or_none()
                 if result:
                     session.execute(delete(AdminDatabase).where(AdminDatabase.id == user.id))
@@ -49,14 +45,14 @@ async def sudo_commands(client: BetBot, message: types.Message):
             await message.reply(f"{user.first_name} is not an admin.")
         case "admins":
             text = "Admins:\n"
-            with Session(client.engine) as session:
+            with Session(Config.engine) as session:
                 result = session.execute(select(AdminDatabase)).all()
                 for i, admin in enumerate(result, start=1):
                     text += f"{i}: {admin[0].name}\n"
                 await message.reply(text)
 
 
-@BetBot.on_message(filters.command(BetBot.ADMIN_COMMANDS) & filters.is_admin)
+@BetBot.on_message(filters.command(Config.ADMIN_COMMANDS) & filters.is_admin)
 async def admin_commands(client: BetBot, message: types.Message):
     action = message.command[0]
     amount = message.amount
@@ -71,7 +67,7 @@ async def admin_commands(client: BetBot, message: types.Message):
                 await message.reply("You should reply to user that you want to delete their data.")
                 return
             user = message.reply_to_message.from_user
-            with Session(client.engine) as session:
+            with Session(Config.engine) as session:
                 result = session.execute(
                     select(UserDatabase).where(UserDatabase.id == user.id)
                 ).one_or_none()

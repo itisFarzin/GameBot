@@ -3,17 +3,13 @@ from sqlalchemy import select, desc
 from sqlalchemy.orm import Session
 
 from betbot import BetBot, filters
-from betbot.database import UserDatabase
+from betbot.database import Config, UserDatabase
 from betbot.types import Message
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 
-def fix_id(chat_id: int):
-    return int(str(chat_id).replace("-", ""))
-
-
-@BetBot.on_message(filters.command(BetBot.COMMON_COMMANDS))
-async def common_commands(client: BetBot, message: Message):
+@BetBot.on_message(filters.command(Config.COMMON_COMMANDS))
+async def common_commands(_: BetBot, message: Message):
     action = message.command[0]
 
     match action:
@@ -38,20 +34,21 @@ if you want to play games, use /help to see what games we have and how to play t
 /balance | Shows the balance of a user
 /gift [amount] * | gift some money to a user
 /leaderboard ║ /lb | Shows the leaderboard of the group
-/loan [amount] | maximum loan is ${client.LOAN_LIMIT:,}
+/loan [amount] | maximum loan is ${Config.LOAN_LIMIT:,}
 /repay [amount] | repay your loan
 /daily | check back everyday to get some cash
 
+""" + ("""
 **Admin Only Commands**:
 /setbalance [amount] * | set the balance of a user
 /addbalance [amount] * | add some money to a user's balance
 /rmbalance [amount] * | remove some money from a user's balance
 /reset * | reset users data
 
-* must reply to a user""")
+""" if message.user_is_admin else "") + "* must reply to a user")
         case "leaderboard" | "lb" if message.chat.type in {enums.ChatType.GROUP, enums.ChatType.SUPERGROUP}:
             text = "Leaderboard (Trophies):\n"
-            with Session(client.engine) as session:
+            with Session(Config.engine) as session:
                 results = session.execute(
                     select(UserDatabase)
                     .order_by(UserDatabase.trophies.desc())
@@ -61,21 +58,21 @@ if you want to play games, use /help to see what games we have and how to play t
                     result = result[0]
                     text += f"{i}. {result.name}: {round(result.trophies):,}\n"
                 await message.reply(text, reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("◦ Balance", "leaderboard-balance"),
+                    [[InlineKeyboardButton("• Trophies", "leaderboard-trophies")],
+                     [InlineKeyboardButton("◦ Balance", "leaderboard-balance"),
                       InlineKeyboardButton("◦ Wins", "leaderboard-wins"),
                       InlineKeyboardButton("◦ Losses", "leaderboard-losses")],
-                     [InlineKeyboardButton("• Trophies", "leaderboard-trophies")],
                      [InlineKeyboardButton("◦ Highest Win Streaks", "leaderboard-highest_win_streaks"),
                       InlineKeyboardButton("◦ Highest Loss Streaks", "leaderboard-highest_loss_streaks")]]
                 ))
 
 
-@BetBot.on_callback_query(filters.regex("leaderboard-(\w+)"))
-async def common_callback(client: BetBot, query: CallbackQuery):
+@BetBot.on_callback_query(filters.regex(r"leaderboard-(\w+)"))
+async def common_callback(_: BetBot, query: CallbackQuery):
     if not query.message:
         return
     user = query.from_user
-    lb_type = query.matches[0].group(1)
+    lb_type = str(query.matches[0].group(1)).lower()
 
     if not query.message.reply_to_message:
         return
@@ -84,17 +81,17 @@ async def common_callback(client: BetBot, query: CallbackQuery):
 
     text = f"Leaderboard ({lb_type.replace('_', ' ').title()}):\n"
     column_mapping = {
+        "trophies": UserDatabase.trophies,
         "balance": UserDatabase.balance,
         "wins": UserDatabase.wins,
         "losses": UserDatabase.losses,
-        "trophies": UserDatabase.trophies,
         "highest_win_streaks": UserDatabase.highest_win_streaks,
         "highest_loss_streaks": UserDatabase.highest_loss_streaks,
     }
-    with Session(client.engine) as session:
+    with Session(Config.engine) as session:
         results = session.execute(
             select(UserDatabase)
-            .order_by(desc(column_mapping.get(lb_type)))
+            .order_by(desc(column_mapping.get(lb_type, UserDatabase.trophies)))
             .limit(10)
         ).all()
         for i, result in enumerate(results, start=1):
@@ -109,5 +106,5 @@ async def common_callback(client: BetBot, query: CallbackQuery):
             buttons.append(InlineKeyboardButton(f"{'•' if key == lb_type else '◦'} {key.replace('_', ' ').title()}",
                                                 f"leaderboard-{key}"))
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(
-            [buttons[0:3]] + [buttons[3:4]] + [buttons[4:6]]
+            [buttons[0:1]] + [buttons[1:4]] + [buttons[4:6]]
         ))

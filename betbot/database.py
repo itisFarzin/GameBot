@@ -1,8 +1,48 @@
-import datetime
 import os
+import datetime
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
 from sqlalchemy import BigInteger, DateTime, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+load_dotenv()
+
+
+class League:
+    name: str
+    bonus: int
+    trophies: int
+
+    def __init__(self, name: str, bonus: int, trophies: int) -> None:
+        self.name = name
+        self.bonus = bonus
+        self.trophies = trophies
+
+
+class Config:
+    engine = create_engine(os.getenv("DB_URI", "sqlite:///database.db"))
+
+    OWNER_ID = int(os.getenv("OWNER_ID", 0))
+    LOAN_LIMIT = int(os.getenv("LOAN_LIMIT", 10000))
+    GAME_AMOUNT_LIMIT = int(os.getenv("GAME_AMOUNT_LIMIT", 500000))
+    TAX = os.getenv("TAX", "true").lower() in ["true", "1"]
+
+    SUDO_COMMANDS = ["addadmin", "rmadmin", "admins"]
+    ADMIN_COMMANDS = ["reset", "setbalance", "addbalance", "rmbalance"]
+    COMMON_COMMANDS = ["start", "help", "leaderboard", "lb"]
+    EASY_GAMES = ["basketball", "bb", "football", "fb", "dart", "dice"]
+    NORMAL_GAMES = ["slot", "roulette", "rl"]
+    HARD_GAMES = ["blackjack", "bj"]
+    GAME_COMMANDS = EASY_GAMES + NORMAL_GAMES + HARD_GAMES
+    USER_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily"]
+
+    LEAGUES = [
+        League("bronze", 5, 600),
+        League("silver", 10, 1200),
+        League("gold", 15, 2000),
+        League("platinum", 20, 3000),
+    ]
 
 
 class Base(DeclarativeBase):
@@ -27,6 +67,7 @@ class UserDatabase(Base):
     trophies: Mapped[int] = mapped_column(default=0)
     hand: Mapped[str] = mapped_column(String(50), default="")
     in_game: Mapped[bool] = mapped_column(default=False)
+    league: Mapped[str] = mapped_column(String(20), default="newbie")
 
 
 class AdminDatabase(Base):
@@ -34,4 +75,3 @@ class AdminDatabase(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(40))
-
