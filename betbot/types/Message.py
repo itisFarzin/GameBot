@@ -10,10 +10,13 @@ class Message(CustomUpdate, UserMethods, pyrogram.types.Message):
 
     @property
     def amount(self):
-        if len(self.command) == 1:
-            return None
+        if self.command:
+            if len(self.command) == 1:
+                return None
 
-        amount = self.command[1].lower()
+            amount = self.command[1].lower()
+        else:
+            amount = self.text
         match amount:
             case "all":
                 return self.user_balance

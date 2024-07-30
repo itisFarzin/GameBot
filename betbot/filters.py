@@ -13,11 +13,11 @@ class Admin(Filter, set):
     def __init__(self):
         super().__init__()
 
-    async def __call__(self, _: BetBot, message: Message):
+    async def __call__(self, _: BetBot, update: Message | CallbackQuery):
         with Session(Config.engine) as session:
-            return (message.from_user
-                    and (message.from_user.id == Config.OWNER_ID or
-                         bool(session.execute(select(AdminDatabase).where(AdminDatabase.id == message.from_user.id))
+            return (update.from_user
+                    and (update.from_user.id == Config.OWNER_ID or
+                         bool(session.execute(select(AdminDatabase).where(AdminDatabase.id == update.from_user.id))
                               .one_or_none())))
 
 

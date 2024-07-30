@@ -1,6 +1,6 @@
 import asyncio
 import random
-
+from pyrogram import enums
 from betbot import BetBot, filters
 from betbot.database import Config
 from betbot.types import Message, CallbackQuery
@@ -134,6 +134,13 @@ async def game_callback(client: BetBot, query: CallbackQuery):
         return
     chat = query.message.chat
     user = query.from_user
+
+    if query.message.chat.type != enums.ChatType.PRIVATE:
+        if not query.message.reply_to_message:
+            return
+        if not query.message.reply_to_message.from_user.id == user.id:
+            return
+
     if query.matches[0].group(3):
         game, choose, amount = query.matches[0].groups()
     else:
@@ -141,11 +148,6 @@ async def game_callback(client: BetBot, query: CallbackQuery):
         game = ""
     amount = int(amount)
     win = False
-
-    if not query.message.reply_to_message:
-        return
-    if not query.message.reply_to_message.from_user.id == user.id:
-        return
 
     if choose == "cancel" and bool(query.get_user_value("in_game")) == True:
         text = f"You canceled this game and you lost 25% of the money putted in the game."

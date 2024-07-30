@@ -1,7 +1,6 @@
 from pyrogram import enums
 from sqlalchemy import select, desc
 from sqlalchemy.orm import Session
-
 from betbot import BetBot, filters
 from betbot.database import Config, UserDatabase
 from betbot.types import Message
@@ -16,8 +15,7 @@ async def common_commands(_: BetBot, message: Message):
         case "start":
             await message.reply("""
 Hi, welcome to bet bot
-if you want to play games, use /help to see what games we have and how to play them in your group
-""")
+if you want to play games, use /help to see what games we have and how to play them""")
         case "help":
             await message.reply(f"""
 **Game Commands**:
@@ -40,13 +38,16 @@ if you want to play games, use /help to see what games we have and how to play t
 
 """ + ("""
 **Admin Only Commands**:
-/setbalance [amount] * | set the balance of a user
-/addbalance [amount] * | add some money to a user's balance
-/rmbalance [amount] * | remove some money from a user's balance
-/reset * | reset users data
+/user * | open panel of a user
+
+""" if message.user_is_owner else "") + ("""
+**Owner Only Commands**:
+/addadmin * | add a new admin
+/rmadmin * | remove a user from admin
+/admins | list admins
 
 """ if message.user_is_admin else "") + "* must reply to a user")
-        case "leaderboard" | "lb" if message.chat.type in {enums.ChatType.GROUP, enums.ChatType.SUPERGROUP}:
+        case "leaderboard" | "lb":
             text = "Leaderboard (Trophies):\n"
             with Session(Config.engine) as session:
                 results = session.execute(
@@ -74,10 +75,11 @@ async def common_callback(_: BetBot, query: CallbackQuery):
     user = query.from_user
     lb_type = str(query.matches[0].group(1)).lower()
 
-    if not query.message.reply_to_message:
-        return
-    if not query.message.reply_to_message.from_user.id == user.id:
-        return
+    if query.message.chat.type != enums.ChatType.PRIVATE:
+        if not query.message.reply_to_message:
+            return
+        if not query.message.reply_to_message.from_user.id == user.id:
+            return
 
     text = f"Leaderboard ({lb_type.replace('_', ' ').title()}):\n"
     column_mapping = {

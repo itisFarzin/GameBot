@@ -1,8 +1,9 @@
-from sqlalchemy import select, delete
-from sqlalchemy.orm import Session
-
+from pyrogram import enums
 from betbot import BetBot, filters, types
 from betbot.database import Config, AdminDatabase, UserDatabase
+from sqlalchemy.orm import Session
+from sqlalchemy import select, delete, update
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message as PyroMessage
 
 
 @BetBot.on_message(filters.command(Config.SUDO_COMMANDS) & filters.is_owner)
@@ -53,7 +54,7 @@ async def sudo_commands(_: BetBot, message: types.Message):
 
 
 @BetBot.on_message(filters.command(Config.ADMIN_COMMANDS) & filters.is_admin)
-async def admin_commands(client: BetBot, message: types.Message):
+async def admin_commands(_: BetBot, message: types.Message):
     action = message.command[0]
     amount = message.amount
 
@@ -62,38 +63,82 @@ async def admin_commands(client: BetBot, message: types.Message):
         return
 
     match action:
-        case "reset":
-            if not message.reply_to_message:
-                await message.reply("You should reply to user that you want to delete their data.")
-                return
-            user = message.reply_to_message.from_user
-            with Session(Config.engine) as session:
-                result = session.execute(
-                    select(UserDatabase).where(UserDatabase.id == user.id)
-                ).one_or_none()
-                if result:
-                    session.execute(delete(UserDatabase).where(UserDatabase.id == user.id))
-                    session.commit()
-                    await message.reply(f"Removed {user.first_name} data successfully.")
-                else:
-                    await message.reply(f"Failed to delete {user.first_name} data.")
-        case "setbalance":
+        case "user":
+            user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
+            await message.reply(f"Panel for user {user.first_name}", reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Set balance", f"setbalance-{user.id}"),
+                      InlineKeyboardButton("Add balance", f"addbalance-{user.id}"),
+                      InlineKeyboardButton("Remove balance", f"removebalance-{user.id}")],
+                    [InlineKeyboardButton("Reset user data", f"reset-{user.id}")]]
+                ))
+
+
+@BetBot.on_callback_query(filters.regex(r"(setbalance|addbalance|removebalance|reset)-(\d+)") & filters.is_admin)
+async def admin_callback(client: BetBot, query: CallbackQuery):
+    if not query.message:
+        return
+    user = query.from_user
+
+    if query.message.chat.type != enums.ChatType.PRIVATE:
+        if not query.message.reply_to_message:
+            return
+        if not query.message.reply_to_message.from_user.id == user.id:
+            return
+
+    action, user_id = query.matches[0].groups()
+
+    with Session(Config.engine) as session:
+        _user = await client.get_users(user_id)
+        if action in ["setbalance", "addbalance", "removebalance"]:
+            sent_message: types.Message = await client.ask(query.message.chat.id, "Enter the amount", timeout=20,
+                                                        user_id=user.id)
+            amount = sent_message.amount
+
             if amount is None:
-                await message.reply("/setbalance [amount]")
+                await query.edit_message_text("Enter a valid number")
                 return
-            that_message = message.reply_to_message if message.reply_to_message else message
-            that_message.update_user_value("balance", amount)
-            await message.reply(f"Set {that_message.from_user.first_name} balance to ${amount:,}")
-        case "addbalance" | "rmbalance":
-            if amount is None:
-                await message.reply(f"/{action} [amount]")
+            if amount == 0:
+                await query.edit_message_text("The amount can't be zero.")
                 return
-            that_message = message.reply_to_message if message.reply_to_message else message
-            that_user = that_message.from_user
-            if action == "addbalance":
-                that_message.add_to_user_balance(amount, False)
-                text = f"Added ${amount:,} to {that_user.first_name}."
+
+            balance = int(session.execute(
+                select(UserDatabase.balance)
+                .where(UserDatabase.id == user_id)
+                .select()
+            ).fetchone()[0])
+
+            text = "impossible"
+            if action == "setbalance":
+                session.execute(
+                    update(UserDatabase)
+                    .where(UserDatabase.id == user_id)
+                    .values({"balance": amount})
+                )
+                text = f"Set {_user.first_name} balance to ${amount:,}"
+            elif action == "addbalance":
+                session.execute(
+                    update(UserDatabase)
+                    .where(UserDatabase.id == user_id)
+                    .values({"balance": balance + amount})
+                )
+                text = f"Added ${amount:,} to {_user.first_name}."
+            elif action == "removebalance":
+                session.execute(
+                    update(UserDatabase)
+                    .where(UserDatabase.id == user_id)
+                    .values({"balance": balance - amount})
+                )
+                text = f"Removed ${amount:,} from {_user.first_name}."
+            if isinstance(sent_message.sent_message, (types.Message, PyroMessage)):
+                await sent_message.sent_message.delete()
+            await query.edit_message_text(text)
+        else:
+            result = session.execute(
+                select(UserDatabase).where(UserDatabase.id == user_id)
+            ).one_or_none()
+            if result:
+                session.execute(delete(UserDatabase).where(UserDatabase.id == user_id))
+                await query.edit_message_text(f"Removed {_user.first_name} data successfully.")
             else:
-                that_message.remove_from_user_balance(amount)
-                text = f"Removed ${amount:,} from {that_user.first_name}."
-            await message.reply(text + f"\nNew balance: ${that_message.user_balance:,}")
+                await query.edit_message_text(f"Failed to delete {_user.first_name} data.")
+        session.commit()

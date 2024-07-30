@@ -1,7 +1,7 @@
 import os
 from typing import Optional, Union
 
-from pyrogram.client import Client
+from pyromod import Client
 
 from betbot.database import Config, Base
 from betbot.dispatcher import Dispatcher

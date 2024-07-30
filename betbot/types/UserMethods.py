@@ -104,7 +104,7 @@ class UserMethods:
         self.remove_from_user_balance(amount)
         if not loan_left == 0:
             return loan_left, f"You paid ${int(amount):,} of the loan.\nYou have ${int(loan_left):,} left to pay.\n", True
-        return loan_left, f"You paid the ${loan:,} loan.\n", True
+        return loan_left, f"You paid the ${int(loan):,} loan.\n", True
 
     def change_user_game_status(self, win: bool):
         res = int(self.get_user_value("wins" if win else "losses"))
@@ -128,6 +128,12 @@ class UserMethods:
             self.update_user_value("trophies", self.trophies - random.randrange(5, 10))
         self.on_trophies_change()
 
+    def on_trophies_change(self):
+        for league in reversed(Config.LEAGUES):
+            if self.trophies > league.trophies and self.get_user_value("league") != league.name:
+                self.update_user_value("league", league.name)
+                break
+
     @property
     def user_balance(self):
         return int(self.get_user_value("balance"))
@@ -135,6 +141,12 @@ class UserMethods:
     @property
     def trophies(self):
         return int(self.get_user_value("trophies"))
+
+    @property
+    def league(self):
+        user_league = self.get_user_value("league")
+        result = list(filter(lambda league: league.name == user_league, Config.LEAGUES))
+        return result[0] if result else Config.LEAGUES[0]
 
     @property
     def user_is_owner(self):
@@ -151,9 +163,3 @@ class UserMethods:
         with Session(Config.engine) as session:
             return bool(session.execute(select(AdminDatabase).where(AdminDatabase.id == self.from_user.id))
                         .one_or_none())
-
-    def on_trophies_change(self):
-        for league in Config.LEAGUES:
-            if self.trophies > league.trophies and self.get_user_value("league") != league.name:
-                self.update_user_value("league", league.name)
-                break

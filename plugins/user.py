@@ -73,7 +73,7 @@ async def user_commands(_: BetBot, message: Message):
                 return
             if amount > loan:
                 amount = loan
-            _, loan_info, _ = message.pay_loan(amount)
+            loan_info = message.pay_loan(amount)[1]
             await message.reply(
                 loan_info + f"\nYour current balance: ${message.user_balance:,}")
         case "daily":
@@ -96,6 +96,8 @@ async def user_commands(_: BetBot, message: Message):
                     streak = 1
 
             reward = random.randrange(100 * streak, 250 * streak)
+
+            reward *= 1 + (message.league.bonus // 100)
             reward, text = message.add_to_user_balance(reward, False)
             message.update_user_value("last_claim", today)
             message.update_user_value("claim_streak", streak)

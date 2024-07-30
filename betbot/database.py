@@ -29,7 +29,7 @@ class Config:
     TAX = os.getenv("TAX", "true").lower() in ["true", "1"]
 
     SUDO_COMMANDS = ["addadmin", "rmadmin", "admins"]
-    ADMIN_COMMANDS = ["reset", "setbalance", "addbalance", "rmbalance"]
+    ADMIN_COMMANDS = ["user"]
     COMMON_COMMANDS = ["start", "help", "leaderboard", "lb"]
     EASY_GAMES = ["basketball", "bb", "football", "fb", "dart", "dice"]
     NORMAL_GAMES = ["slot", "roulette", "rl"]
@@ -38,6 +38,7 @@ class Config:
     USER_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily"]
 
     LEAGUES = [
+        League("newbie", 0, 0),
         League("bronze", 5, 600),
         League("silver", 10, 1200),
         League("gold", 15, 2000),
