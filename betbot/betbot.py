@@ -1,8 +1,11 @@
 import os
+import asyncio
+from threading import Thread
 from typing import Optional, Union
 
 from pyromod import Client
 
+from betbot import types
 from betbot.database import Config, Base
 from betbot.dispatcher import Dispatcher
 
@@ -23,4 +26,22 @@ class BetBot(Client):
         self.dispatcher = Dispatcher(self)
 
         Base.metadata.create_all(Config.engine)
-        
+
+    async def deletable_dice(
+        self,
+        chat_id: int | str,
+        emoji: str = "🎲",
+        reply_to_message_id: int = None,
+        seconds: int = 0
+    ) -> Optional["types.Message"]:
+        msg = await self.send_dice(
+            chat_id,
+            emoji,
+            reply_to_message_id=reply_to_message_id
+        )
+        async def _delete(msg: Optional["types.Message"], second: int):
+            if msg and second > 0:
+                await asyncio.sleep(second)
+                await msg.delete()
+        Thread(target=asyncio.run, args=(_delete(msg, seconds),)).start()
+        return msg

@@ -1,0 +1,176 @@
+# Commons
+common_use: "/{} [amount]"
+enter_amount: "Enter the amount"
+enter_valid_number: "Enter a valid number"
+no_zero_amount: "The amount can't be zero."
+reply: "You should reply to the user."
+dont_have_money: "You dont have this amount of money."
+money_refunded: "Your Money got refunded."
+choose: "Choose"
+white: "White"
+center: "Center"
+user_balance: "Your current balance: ${:,}"
+fee: "You paid 5% in taxes"
+list_user: "{}: {}"
+
+# Start
+
+start: |
+  Hi, welcome to bet bot
+  if you want to play games, use /help to see what games we have and how to play them
+
+# Help
+
+help: |
+  **Game Commands**:
+  /roulette ║ /rl [amount] | play roulette
+  /blackjack ║ /bj [amount] | play blackjack
+  /slot [amount] | play slot machine
+  /dice [amount] | play dice
+  /basketball ║ /bb [amount] | play basketball
+  /football ║ /fb [amount] | play football
+  /dart [amount] | play dart
+
+  **Common Commands**:
+  /info | Shows information of a user
+  /balance | Shows the balance of a user
+  /gift [amount] * | gift some money to a user
+  /leaderboard ║ /lb | Shows the leaderboard of the group
+  /loan [amount] | maximum loan is ${:,}
+  /repay [amount] | repay your loan
+  /daily | check back everyday to get some cash
+admin_help: |
+  **Admin Only Commands**:
+  /user * | open panel of a user
+owner_help: |
+  **Owner Only Commands**:
+  /addadmin * | add a new admin
+  /rmadmin * | remove a user from admin
+  /admins | list admins
+help_footer: "* must reply to a user"
+
+# Leaderboard
+
+leaderboard: "Leaderboard"
+trophies: "Trophies"
+balance: "Balance"
+wins: "Wins"
+losses: "Losses"
+highest_win_streaks: "Highest Win Streaks"
+highest_loss_streaks: "Highest Loss Streaks"
+
+# Admin
+
+add_admin: "Successfully added {} as an admin."
+already_is_admin: "{} is already an admin."
+remove_admin: "Successfully removed {} from admin list."
+is_not_admin: "{} is not an admin."
+admins: "Admins"
+user_panel: "Panel for user {}"
+set_balance: "Set balance"
+add_balance: "Add to balance"
+remove_balance: "Remove from balance"
+reset_data: "Reset user data"
+set_user_balance: "Set {} balance to ${:,}"
+add_to_user_balance: "Added ${:,} to {}."
+remove_from_user_balance: "Removed ${:,} from {}."
+remove_user_data: "Removed {} data successfully."
+failed_to_remove_user_data: "Failed to delete {} data."
+
+# Game
+
+even: "Even"
+odd: "Odd"
+red: "Red"
+black: "Black"
+cancel: "Cancel"
+win: "You Win ${:,}"
+lost: "You Lost ${:,}"
+tie: "It's a tie!"
+game_ended: "Game has been ended."
+game_canceled: "You canceled this game and you lost 25% of the money putted in the game."
+game_amount_limit: "Amount of money you put in a game can't exceed ${:,}"
+failed_to_start_game: "Failed to start the game."
+wait: "Wait..."
+
+# Slot
+
+slot_money_refunded: "Double Emoji, money refunded."
+
+# Blackjack
+
+blackjack_player_hand: "Your hand: {} (Value: {})"
+blackjack_dealer_hand: "Dealer's hand: {}, '?'"
+blackjack_dealer_hand_full: "Dealer's hand: {} (Value: {})"
+blackjack_hit: "Hit"
+blackjack_stand: "Stand"
+roulette: "The wheel spins... and lands on {} ({})."
+blackjack_player_busted: "You busted! Dealer wins."
+blackjack_dealer_busted: "Dealer busted! You win"
+blackjack_dealer_win: "Dealer wins."
+
+# Dice
+
+dice_three_and_below: "3 and below"
+dice_four_and_above: "4 and above"
+dice_value: "Dice value: {}"
+
+# Basketball
+
+basketball_inside_nest: "Inside of the net"
+basketball_outside_nest: "Outside of the net"
+
+# Football
+
+football_inside_goal: "Inside the goal"
+football_outside_goal: "Outside the goal"
+
+# dart
+
+dart_missed: "You missed"
+dart_normal: "You hit the {} row ({})"
+dart_center: "You hit the center"
+dart_footer: "for the game being fair, the red center dont count as red"
+
+# User info
+
+user_info: |
+  Name: {}
+  Balance: ${:,}
+  Wins: {}
+  Losses: {}
+  Debt: ${:,}
+  Claim Streak Day: {}
+  Highest Win Streaks: {}
+  Highest Loss Streaks: {}
+  Trophies: {}
+  League: {}
+user_balance: "Balance: ${:,}"
+
+# Gift
+
+gift: "You gifted **{}** ${:,}"
+
+# Loan
+
+no_zero_loan: "Loan amount can't be zero."
+loan_limit: "Loan amount can't exceed ${:,}"
+already_have_loan: |
+  You have debt to repay.
+  Use /repay to pay it now.
+granted_loan: |
+  You have been granted a loan of ${:,}
+  It has been added to your balance.
+dont_have_debt: "You dont have debt to pay."
+dont_have_money_to_pay_debt: "You dont have the money to pay the debt."
+paid_x_of_debt: |
+  You paid ${:,} of the debt.
+  You have ${:,} left to pay.
+paid_full_debt: "You paid the ${:,} debt."
+
+# Daily
+
+already_claimed_daily: "You've already claimed your daily reward today."
+daily_reward: |
+  You've received ${:,} as your daily reward! {}
+  Your current streak is {} days.

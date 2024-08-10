@@ -1,4 +1,5 @@
 import os
+import yaml
 import datetime
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
@@ -18,6 +19,26 @@ class League:
         self.name = name
         self.bonus = bonus
         self.trophies = trophies
+
+
+class Language:
+    name: str
+    language: dict
+
+    def __init__(self, name: str):
+        self.name = name
+        self.load()
+
+    def get_translation(self, key: str) -> str:
+        return self.language.get(key, "Missing translation")
+
+    def load(self):
+        path = f"languages/{self.name}.yml"
+        if os.path.exists(path):
+            with open(path, "r") as file:
+                self.language = yaml.load(file, Loader=yaml.SafeLoader)
+        else:
+            raise Exception(f"There is no language file for {self.name}")
 
 
 class Config:
@@ -44,6 +65,18 @@ class Config:
         League("gold", 15, 2000),
         League("platinum", 20, 3000),
     ]
+
+    LANGUAGES = [
+        Language("en"),
+    ]
+
+    DEFAULT_LANGUAGE = next(filter(
+        lambda language: language.name == os.getenv("DEFAULT_LANGUAGE", "en"), LANGUAGES), LANGUAGES[0])
+    # TODO: Add ability to have per user language
+
+    @staticmethod
+    def get_translation(key: str):
+        return Config.DEFAULT_LANGUAGE.get_translation(key)
 
 
 class Base(DeclarativeBase):

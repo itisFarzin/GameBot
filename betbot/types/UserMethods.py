@@ -9,6 +9,8 @@ from pyrogram.types import User
 
 from betbot.database import Config, UserDatabase, AdminDatabase
 
+get_translation = Config.get_translation
+
 
 class UserMethods:
     def __init__(self, client: "betbot.BetBot", from_user: User):
@@ -64,12 +66,13 @@ class UserMethods:
     def add_to_user_balance(self, amount: int | float, tax: bool = Config.TAX, should_pay_loan: bool = True):
         text = ""
         loan = int(self.get_user_value("loan"))
+        new_value = amount
 
         if tax:
-            text = " (You paid 5% in taxes)"
+            text = f" ({get_translation('fee')})"
             self.insert_user(True)
             self.update_user_value("balance", self.get_user_value("balance", True) + amount * 0.05, True)
-        new_value = amount * 0.95 if tax else amount
+            new_value = amount * 0.95
 
         self.update_user_value("balance", self.user_balance + new_value)
 
@@ -94,7 +97,7 @@ class UserMethods:
         loan = int(self.get_user_value("loan"))
 
         if not self.has_enough_money(amount):
-            return loan, "You dont have the money to pay the loan.\n", False
+            return loan, get_translation("dont_have_money_to_pay_debt") + "\n", False
 
         if amount > loan:
             amount = loan
@@ -103,8 +106,9 @@ class UserMethods:
         self.update_user_value("loan", loan_left)
         self.remove_from_user_balance(amount)
         if not loan_left == 0:
-            return loan_left, f"You paid ${int(amount):,} of the loan.\nYou have ${int(loan_left):,} left to pay.\n", True
-        return loan_left, f"You paid the ${int(loan):,} loan.\n", True
+            
+            return loan_left, get_translation("paid_x_of_debt").format(amount, int(loan_left)) + "\n", True
+        return loan_left, get_translation("paid_full_debt").format(loan) + "\n", True
 
     def change_user_game_status(self, win: bool):
         res = int(self.get_user_value("wins" if win else "losses"))
@@ -145,8 +149,8 @@ class UserMethods:
     @property
     def league(self):
         user_league = self.get_user_value("league")
-        result = list(filter(lambda league: league.name == user_league, Config.LEAGUES))
-        return result[0] if result else Config.LEAGUES[0]
+        return next(filter(
+            lambda league: league.name == user_league, Config.LEAGUES), Config.LEAGUES[0])
 
     @property
     def user_is_owner(self):

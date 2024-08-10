@@ -1,12 +1,29 @@
 import betbot
-import pyrogram
+import pyromod
+import asyncio
+from betbot import types
+from typing import Optional
+from threading import Thread
 from .UserMethods import UserMethods
 from .CustomUpdate import CustomUpdate
 
 
-class Message(CustomUpdate, UserMethods, pyrogram.types.Message):
+class Message(CustomUpdate, UserMethods, pyromod.Message):
     def __init__(self, client: "betbot.BetBot", **kwargs):
         super().__init__(client=client, **kwargs)
+
+    async def deletable_reply(
+        self,
+        text: str,
+        seconds: int = 0
+    ) -> "types.Message":
+        msg = await self.reply(text)
+        async def _delete(msg: Optional["types.Message"], second: int):
+            if msg and second > 0:
+                await asyncio.sleep(second)
+                await msg.delete()
+        Thread(target=asyncio.run, args=(_delete(msg, seconds),)).start()
+        return msg
 
     @property
     def amount(self):

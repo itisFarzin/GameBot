@@ -6,6 +6,8 @@ from betbot.database import Config, UserDatabase
 from betbot.types import Message
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
+get_translation = Config.get_translation
+
 
 @BetBot.on_message(filters.command(Config.COMMON_COMMANDS))
 async def common_commands(_: BetBot, message: Message):
@@ -13,42 +15,14 @@ async def common_commands(_: BetBot, message: Message):
 
     match action:
         case "start":
-            await message.reply("""
-Hi, welcome to bet bot
-if you want to play games, use /help to see what games we have and how to play them""")
+            await message.reply(get_translation("start"))
         case "help":
-            await message.reply(f"""
-**Game Commands**:
-/roulette ║ /rl [amount] | play roulette
-/blackjack ║ /bj [amount] | play blackjack
-/slot [amount] | play slot machine
-/dice [amount] | play dice
-/basketball ║ /bb [amount] | play basketball
-/football ║ /fb [amount] | play football
-/dart [amount] | play dart
-
-**Common Commands**:
-/info | Shows information of a user
-/balance | Shows the balance of a user
-/gift [amount] * | gift some money to a user
-/leaderboard ║ /lb | Shows the leaderboard of the group
-/loan [amount] | maximum loan is ${Config.LOAN_LIMIT:,}
-/repay [amount] | repay your loan
-/daily | check back everyday to get some cash
-
-""" + ("""
-**Admin Only Commands**:
-/user * | open panel of a user
-
-""" if message.user_is_owner else "") + ("""
-**Owner Only Commands**:
-/addadmin * | add a new admin
-/rmadmin * | remove a user from admin
-/admins | list admins
-
-""" if message.user_is_admin else "") + "* must reply to a user")
+            await message.reply(get_translation("help").format(Config.LOAN_LIMIT) +
+                ("\n" + get_translation("admin_help") if message.user_is_admin else "") +
+                ("\n" + get_translation("owner_help") if message.user_is_owner else "") +
+                "\n" + get_translation("help_footer"))
         case "leaderboard" | "lb":
-            text = "Leaderboard (Trophies):\n"
+            text = f"{get_translation('leaderboard')} ({get_translation('trophies')}):\n"
             with Session(Config.engine) as session:
                 results = session.execute(
                     select(UserDatabase)
@@ -57,14 +31,20 @@ if you want to play games, use /help to see what games we have and how to play t
                 ).all()
                 for i, result in enumerate(results, start=1):
                     result = result[0]
-                    text += f"{i}. {result.name}: {round(result.trophies):,}\n"
+                    text += f"{i}. **{result.name}**: {round(result.trophies):,}\n"
                 await message.reply(text, reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("• Trophies", "leaderboard-trophies")],
-                     [InlineKeyboardButton("◦ Balance", "leaderboard-balance"),
-                      InlineKeyboardButton("◦ Wins", "leaderboard-wins"),
-                      InlineKeyboardButton("◦ Losses", "leaderboard-losses")],
-                     [InlineKeyboardButton("◦ Highest Win Streaks", "leaderboard-highest_win_streaks"),
-                      InlineKeyboardButton("◦ Highest Loss Streaks", "leaderboard-highest_loss_streaks")]]
+                    [[InlineKeyboardButton(f"•" + get_translation("trophies"),
+                                           "leaderboard-trophies")],
+                     [InlineKeyboardButton(f"◦" + get_translation("balance"),
+                                           "leaderboard-balance"),
+                      InlineKeyboardButton(f"◦" + get_translation("wins"),
+                                           "leaderboard-wins"),
+                      InlineKeyboardButton(f"◦" + get_translation("losses"),
+                                           "leaderboard-losses")],
+                     [InlineKeyboardButton(f"◦" + get_translation("highest_win_streaks"),
+                                           "leaderboard-highest_win_streaks"),
+                      InlineKeyboardButton(f"◦" + get_translation("highest_loss_streaks"),
+                                           "leaderboard-highest_loss_streaks")]]
                 ))
 
 
@@ -81,7 +61,7 @@ async def common_callback(_: BetBot, query: CallbackQuery):
         if not query.message.reply_to_message.from_user.id == user.id:
             return
 
-    text = f"Leaderboard ({lb_type.replace('_', ' ').title()}):\n"
+    text = f"{get_translation('leaderboard')} ({get_translation(lb_type.lower())}):\n"
     column_mapping = {
         "trophies": UserDatabase.trophies,
         "balance": UserDatabase.balance,
@@ -102,11 +82,11 @@ async def common_callback(_: BetBot, query: CallbackQuery):
                 data = f"${int(result.balance):,}"
             else:
                 data = f"{int(getattr(result, lb_type)):,}"
-            text += f"{i}. {result.name}: {data}\n"
+            text += f"{i}. **{result.name}**: {data}\n"
         buttons = []
         for key in column_mapping.keys():
-            buttons.append(InlineKeyboardButton(f"{'•' if key == lb_type else '◦'} {key.replace('_', ' ').title()}",
-                                                f"leaderboard-{key}"))
+            buttons.append(InlineKeyboardButton(("• " if key == lb_type else "◦ ") +
+                                                get_translation(key.lower()), f"leaderboard-{key}"))
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(
             [buttons[0:1]] + [buttons[1:4]] + [buttons[4:6]]
         ))
