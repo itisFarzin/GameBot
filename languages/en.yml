@@ -6,6 +6,7 @@ no_zero_amount: "The amount can't be zero."
 reply: "You should reply to the user."
 dont_have_money: "You dont have this amount of money."
 money_refunded: "Your Money got refunded."
+cant_play_game: "Your league is higher than {}"
 choose: "Choose"
 white: "White"
 center: "Center"
@@ -48,6 +49,14 @@ owner_help: |
   /rmadmin * | remove a user from admin
   /admins | list admins
 help_footer: "* must reply to a user"
+
+# Leagues
+
+newbie: "newbie"
+bronze: "bronze"
+silver: "silver"
+gold: "gold"
+platinum: "platinum"
 
 # Leaderboard
 
@@ -155,8 +164,8 @@ gift: "You gifted **{}** ${:,}"
 
 no_zero_loan: "Loan amount can't be zero."
 loan_limit: "Loan amount can't exceed ${:,}"
-already_have_loan: |
-  You have debt to repay.
+already_have_debt: |
+  You have debt to pay.
   Use /repay to pay it now.
 granted_loan: |
   You have been granted a loan of ${:,}

@@ -39,6 +39,7 @@ class BetBot(Client):
             emoji,
             reply_to_message_id=reply_to_message_id
         )
+        msg.__class__ = types.Message
         async def _delete(msg: Optional["types.Message"], second: int):
             if msg and second > 0:
                 await asyncio.sleep(second)

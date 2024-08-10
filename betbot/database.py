@@ -65,6 +65,9 @@ class Config:
         League("gold", 15, 2000),
         League("platinum", 20, 3000),
     ]
+    # TODO: Fix hardcoded league name
+
+    NEW_PLAYER = ["newbie", "bronze"]
 
     LANGUAGES = [
         Language("en"),
@@ -75,8 +78,9 @@ class Config:
     # TODO: Add ability to have per user language
 
     @staticmethod
-    def get_translation(key: str):
-        return Config.DEFAULT_LANGUAGE.get_translation(key)
+    def get_translation(key: str, append_new_line: bool = False):
+        return (Config.DEFAULT_LANGUAGE.get_translation(key) +
+                ("\n" if append_new_line else ""))
 
 
 class Base(DeclarativeBase):

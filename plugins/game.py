@@ -41,6 +41,9 @@ async def game_commands(client: BetBot, message: Message):
 
     match action:
         case "roulette" | "rl":
+            result = message.can_play("roulette")
+            if not result[0]:
+                return await message.reply(result[1])
             message.remove_from_user_balance(amount)
             message.update_user_value("in_game", True)
             await message.reply(get_translation("choose"), reply_markup=InlineKeyboardMarkup(
@@ -51,6 +54,9 @@ async def game_commands(client: BetBot, message: Message):
                  [InlineKeyboardButton(get_translation("cancel"), f"cancel-{amount}")]]
             ))
         case "blackjack" | "bj":
+            result = message.can_play("blackjack")
+            if not result[0]:
+                return await message.reply(result[1])
             message.remove_from_user_balance(amount)
             message.update_user_value("in_game", True)
             deck = list(BLACKJACK_CARDS.keys()) * 4
@@ -59,20 +65,22 @@ async def game_commands(client: BetBot, message: Message):
             dealer_hand = [deck.pop(), deck.pop()]
             message.update_user_value("hand", " ".join(player_hand) + "|" + " ".join(dealer_hand))
             await message.reply(
-                get_translation("blackjack_player_hand").format(", ".join(player_hand), calculate_hand_value(player_hand)) +
-                "\n" + get_translation("blackjack_dealer_hand").format(dealer_hand[0]), reply_markup=InlineKeyboardMarkup(
+                get_translation("blackjack_player_hand", True).format(", ".join(player_hand), calculate_hand_value(player_hand)) +
+                get_translation("blackjack_dealer_hand").format(dealer_hand[0]), reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton(get_translation("blackjack_hit"), f"blackjack-hit-{amount}"),
                       InlineKeyboardButton(get_translation("blackjack_stand"), f"blackjack-stand-{amount}")],
                      [InlineKeyboardButton(get_translation("cancel"), f"cancel-{amount}")]]
                 ))
         case "slot":
-            text = get_translation("lost").format(amount)
-            get_translation("lost").format(amount)
+            result = message.can_play("slot")
+            if not result[0]:
+                return await message.reply(result[1])
+            text = get_translation("lost", True).format(amount)
             double_emoji = False
             slot = await client.deletable_dice(chat.id, "🎰", reply_to_message_id=message.id, seconds=5)
             if not slot:
-                await message.reply(get_translation("failed_to_start_game") +
-                                    "\n" + get_translation("money_refunded"))
+                await message.reply(get_translation("failed_to_start_game", True) +
+                                    get_translation("money_refunded"))
                 return
             message.remove_from_user_balance(amount)
             value = slot.dice.value
@@ -84,17 +92,18 @@ async def game_commands(client: BetBot, message: Message):
             elif value in [5, 9, 13, 18, 26, 30, 35, 39, 47, 52, 56, 60]:
                 double_emoji = True
             if double_emoji:
-                text = get_translation("slot_money_refunded")
+                text = get_translation("slot_money_refunded", True)
                 message.add_to_user_balance(amount, False)
             elif win:
                 multiplier = {1: 2.5, 22: 2.5, 43: 3, 64: 3.5}[slot.dice.value]
                 new_amount = amount + (amount * multiplier)
                 _, res = message.add_to_user_balance(amount + (amount * multiplier))
                 text = get_translation("win").format(new_amount) + res
-            msg = await slot.reply(text + "\n" + get_translation("user_balance").format(message.user_balance))
-            await asyncio.sleep(60)
-            await msg.delete()
+            await slot.deletable_reply(text + "\n" + get_translation("user_balance").format(message.user_balance), 60)
         case "dice":
+            result = message.can_play("dice")
+            if not result[0]:
+                return await message.reply(result[1])
             message.remove_from_user_balance(amount)
             message.update_user_value("in_game", True)
             buttons = []
@@ -108,6 +117,9 @@ async def game_commands(client: BetBot, message: Message):
             keyboard.append([InlineKeyboardButton(get_translation("cancel"), f"cancel-{amount}")])
             await message.reply(get_translation("choose"), reply_markup=InlineKeyboardMarkup(keyboard))
         case "basketball" | "bb":
+            result = message.can_play("basketball")
+            if not result[0]:
+                return await message.reply(result[1])
             message.remove_from_user_balance(amount)
             message.update_user_value("in_game", True)
             await message.reply(get_translation("choose"), reply_markup=InlineKeyboardMarkup(
@@ -116,6 +128,9 @@ async def game_commands(client: BetBot, message: Message):
                  [InlineKeyboardButton(get_translation("cancel"), f"cancel-{amount}")]]
             ))
         case "football" | "fb":
+            result = message.can_play("football")
+            if not result[0]:
+                return await message.reply(result[1])
             message.remove_from_user_balance(amount)
             message.update_user_value("in_game", True)
             await message.reply(get_translation("choose"), reply_markup=InlineKeyboardMarkup(
@@ -124,6 +139,9 @@ async def game_commands(client: BetBot, message: Message):
                  [InlineKeyboardButton(get_translation("cancel"), f"cancel-{amount}")]]
             ))
         case "dart":
+            result = message.can_play("dart")
+            if not result[0]:
+                return await message.reply(result[1])
             message.remove_from_user_balance(amount)
             message.update_user_value("in_game", True)
             keyboard = [[InlineKeyboardButton(get_translation("white"), f"dart-white-{amount}"),
@@ -171,7 +189,7 @@ async def game_callback(client: BetBot, query: CallbackQuery):
         case "roulette":
             new_amount = amount * 2
             number = random.randrange(1, 36)
-            text = "\n" + get_translation("lost").format(amount)
+            text = get_translation("lost").format(amount)
 
             if number % 2 == 0:
                 if choose in ["even", "black"]:
@@ -202,17 +220,17 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                 deck.pop(deck.index(card))
             if choose == "hit":
                 player_hand.append(deck.pop())
-                text = get_translation("blackjack_player_hand").format(", ".join(player_hand), calculate_hand_value(player_hand))
+                text = get_translation("blackjack_player_hand", True).format(", ".join(player_hand), calculate_hand_value(player_hand))
                 if calculate_hand_value(player_hand) > 21:
                     await query.edit_message_text(
-                        text + "\n" + get_translation("blackjack_dealer_hand_full").format(", ".join(dealer_hand), calculate_hand_value(dealer_hand)) +
-                        "\n\n" + get_translation("blackjack_player_busted") + "\n" + get_translation("user_balance").format(query.user_balance))
+                        text + get_translation("blackjack_dealer_hand_full").format(", ".join(dealer_hand), calculate_hand_value(dealer_hand)) +
+                        "\n\n" + get_translation("blackjack_player_busted", True) + get_translation("user_balance").format(query.user_balance))
                     query.change_user_game_status(False)
                     query.update_user_value("hand", "")
                 else:
                     query.update_user_value("hand", " ".join(player_hand) + "|" + " ".join(dealer_hand))
                     query.update_user_value("in_game", True)
-                    await query.edit_message_text(text + "\n" + get_translation("blackjack_dealer_hand").format(dealer_hand[0]),
+                    await query.edit_message_text(text + get_translation("blackjack_dealer_hand").format(dealer_hand[0]),
                                                   reply_markup=InlineKeyboardMarkup(
                                                       [[InlineKeyboardButton(get_translation("blackjack_hit"), f"blackjack-hit-{amount}"),
                                                         InlineKeyboardButton(get_translation("blackjack_stand"), f"blackjack-stand-{amount}")]]
@@ -226,8 +244,8 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                     dealer_hand_value = calculate_hand_value(dealer_hand)
                 text = ""
                 res = ""
-                message_text = (get_translation("blackjack_player_hand").format(", ".join(player_hand), calculate_hand_value(player_hand)) +
-                                "\n" + get_translation("blackjack_dealer_hand_full").format(", ".join(player_hand), calculate_hand_value(dealer_hand)))
+                message_text = (get_translation("blackjack_player_hand", True).format(", ".join(player_hand), calculate_hand_value(player_hand)) +
+                                get_translation("blackjack_dealer_hand_full").format(", ".join(player_hand), calculate_hand_value(dealer_hand)))
                 win_amount = amount * 2.5
                 if player_hand_value > 21:
                     text = get_translation("blackjack_player_busted")
@@ -239,12 +257,12 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                 elif player_hand_value < dealer_hand_value:
                     text = get_translation("blackjack_dealer_win")
                 else:
-                    text = (get_translation("tie") +
-                            "\n" + get_translation("money_refunded"))
+                    text = (get_translation("tie", True) +
+                            get_translation("money_refunded"))
                     tie = True
                 if win:
-                    text += ("" if text == "" else "\n") + get_translation("win").format(int(win_amount))
                     _, res = query.add_to_user_balance(win_amount)
+                    text += ("" if text == "" else "\n") + get_translation("win").format(int(win_amount))
                 elif not tie:
                         text += "\n" + get_translation("lost").format(amount)
                 message_text += f"\n\n{text}{res}"
@@ -260,8 +278,8 @@ async def game_callback(client: BetBot, query: CallbackQuery):
             dice = await client.deletable_dice(chat.id, reply_to_message_id=query.message.id, seconds=5)
             if not dice:
                 query.add_to_user_balance(amount, False, False)
-                await query.edit_message_text(get_translation("failed_to_start_game") +
-                                              "\n" + get_translation("money_refunded"))
+                await query.edit_message_text(get_translation("failed_to_start_game", True) +
+                                              get_translation("money_refunded"))
                 return
             await query.edit_message_text(get_translation("wait"))
             value = dice.dice.value
@@ -292,8 +310,8 @@ async def game_callback(client: BetBot, query: CallbackQuery):
             dart = await client.deletable_dice(chat.id, "🎯", reply_to_message_id=query.message.id, seconds=5)
             if not dart:
                 query.add_to_user_balance(amount, False, False)
-                await query.edit_message_text(get_translation("failed_to_start_game") +
-                                              "\n" + get_translation("money_refunded"))
+                await query.edit_message_text(get_translation("failed_to_start_game", True) +
+                                              get_translation("money_refunded"))
                 return
             await query.edit_message_text(get_translation("wait"))
             value = dart.dice.value
@@ -314,10 +332,11 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                     win = True
             if win:
                 multiplier = 0.5 if choose in ["red", "white"] else 1.5
-                new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
+                new_amount = amount + (amount * multiplier)
+                _, res = query.add_to_user_balance(new_amount)
                 text += get_translation("win").format(new_amount) + res
             else:
-                text += "\n" + get_translation("lost").format(amount)
+                text += get_translation("lost").format(amount)
                 if choose == "red" and value == 6:
                     text += f" ({get_translation('dart_footer')})"
             query.change_user_game_status(win)
@@ -327,8 +346,8 @@ async def game_callback(client: BetBot, query: CallbackQuery):
             basketball = await client.deletable_dice(chat.id, "🏀", reply_to_message_id=query.message.id, seconds=5)
             if not basketball:
                 query.add_to_user_balance(amount, False, False)
-                await query.edit_message_text(get_translation("failed_to_start_game") +
-                                              "\n" + get_translation("money_refunded"))
+                await query.edit_message_text(get_translation("failed_to_start_game", True) +
+                                              get_translation("money_refunded"))
                 return
             value = basketball.dice.value
             await asyncio.sleep(4.5)
@@ -340,19 +359,20 @@ async def game_callback(client: BetBot, query: CallbackQuery):
             if win:
                 query.change_user_game_status(True)
                 multiplier = 1 if value == 5 else 0.5
-                new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
+                new_amount = amount + (amount * multiplier)
+                _, res = query.add_to_user_balance(new_amount)
                 text = get_translation("win").format(new_amount) + res
             else:
                 query.change_user_game_status(False)
-                text = "\n" + get_translation("lost").format(amount)
+                text = get_translation("lost").format(amount)
             await query.edit_message_text(text + "\n" + get_translation("user_balance").format(query.user_balance))
 
         case "football":
             football = await client.deletable_dice(chat.id, "⚽", reply_to_message_id=query.message.id, seconds=5)
             if not football:
                 query.add_to_user_balance(amount, False, False)
-                await query.edit_message_text(get_translation("failed_to_start_game") +
-                                              "\n" + get_translation("money_refunded"))
+                await query.edit_message_text(get_translation("failed_to_start_game", True) +
+                                              get_translation("money_refunded"))
                 return
             value = football.dice.value
             await asyncio.sleep(4.5)
@@ -364,12 +384,13 @@ async def game_callback(client: BetBot, query: CallbackQuery):
             if win:
                 query.change_user_game_status(True)
                 multiplier = 0.5 if value in [4, 3] else 1
-                new_amount, res = query.add_to_user_balance(amount + (amount * multiplier))
-                text = get_translation("win").format(new_amount) + res
+                new_amount = amount + (amount * multiplier)
+                _, res = query.add_to_user_balance(new_amount)
+                text = get_translation("win", True).format(new_amount) + res
             else:
                 query.change_user_game_status(False)
-                text = "\n" + get_translation("lost").format(amount)
-            await query.edit_message_text(text + "\n" + get_translation("user_balance").format(query.user_balance))
+                text = get_translation("lost", True).format(amount)
+            await query.edit_message_text(text + get_translation("user_balance").format(query.user_balance))
 
     if bool(query.get_user_value("in_game")) == False:
         await asyncio.sleep(60)

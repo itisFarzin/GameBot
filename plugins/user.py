@@ -51,12 +51,12 @@ async def user_commands(_: BetBot, message: Message):
                 return
             loan = int(message.get_user_value("loan"))
             if loan != 0:
-                await message.reply(get_translation("have_debt"))
+                await message.reply(get_translation("already_have_debt"))
                 return
             message.update_user_value("loan", amount)
             message.add_to_user_balance(amount, False, False)
-            await message.reply(get_translation("granted_loan").format("amount") +
-                                "\n" + get_translation("user_balance").format(message.user_balance))
+            await message.reply(get_translation("granted_loan").format(amount) +
+                                get_translation("user_balance").format(message.user_balance))
         case "repay":
             loan = int(message.get_user_value("loan"))
             if loan == 0:
@@ -71,7 +71,7 @@ async def user_commands(_: BetBot, message: Message):
                 amount = loan
             loan_info = message.pay_loan(amount)[1]
             await message.reply(loan_info +
-                                "\n" + get_translation("user_balance").format(message.user_balance))
+                                get_translation("user_balance").format(message.user_balance))
         case "daily":
             today = datetime.now(timezone.utc).date()
             last_claim, streak = message.get_user_values(["last_claim", "claim_streak"])

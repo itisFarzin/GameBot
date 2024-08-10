@@ -17,10 +17,10 @@ async def common_commands(_: BetBot, message: Message):
         case "start":
             await message.reply(get_translation("start"))
         case "help":
-            await message.reply(get_translation("help").format(Config.LOAN_LIMIT) +
-                ("\n" + get_translation("admin_help") if message.user_is_admin else "") +
-                ("\n" + get_translation("owner_help") if message.user_is_owner else "") +
-                "\n" + get_translation("help_footer"))
+            await message.reply(get_translation("help", True).format(Config.LOAN_LIMIT) +
+                (get_translation("admin_help", True) if message.user_is_admin else "") +
+                (get_translation("owner_help", True) if message.user_is_owner else "") +
+                get_translation("help_footer"))
         case "leaderboard" | "lb":
             text = f"{get_translation('leaderboard')} ({get_translation('trophies')}):\n"
             with Session(Config.engine) as session:

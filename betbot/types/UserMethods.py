@@ -132,6 +132,13 @@ class UserMethods:
             self.update_user_value("trophies", self.trophies - random.randrange(5, 10))
         self.on_trophies_change()
 
+    def can_play(self, game: str):
+        if self.league.name in Config.NEW_PLAYER:
+            if not game in Config.EASY_GAMES:
+                return False, (get_translation("cant_play_game")
+                               .format(", ".join(Config.NEW_PLAYER)))
+        return True, ""
+
     def on_trophies_change(self):
         for league in reversed(Config.LEAGUES):
             if self.trophies > league.trophies and self.get_user_value("league") != league.name:
