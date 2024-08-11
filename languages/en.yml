@@ -4,13 +4,13 @@ enter_amount: "Enter the amount"
 enter_valid_number: "Enter a valid number"
 no_zero_amount: "The amount can't be zero."
 reply: "You should reply to the user."
+player_balance: "Your current balance: ${:,}"
 dont_have_money: "You dont have this amount of money."
 money_refunded: "Your Money got refunded."
 cant_play_game: "Your league is higher than {}"
 choose: "Choose"
 white: "White"
 center: "Center"
-user_balance: "Your current balance: ${:,}"
 fee: "You paid 5% in taxes"
 list_user: "{}: {}"
 
@@ -154,7 +154,7 @@ user_info: |
   Highest Loss Streaks: {}
   Trophies: {}
   League: {}
-user_balance: "Balance: ${:,}"
+user_balance: "{}'s Balance: ${:,}"
 
 # Gift
 

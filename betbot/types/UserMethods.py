@@ -133,8 +133,8 @@ class UserMethods:
         self.on_trophies_change()
 
     def can_play(self, game: str):
-        if self.league.name in Config.NEW_PLAYER:
-            if not game in Config.EASY_GAMES:
+        if not self.league.name in Config.NEW_PLAYER:
+            if game in Config.EASY_GAMES:
                 return False, (get_translation("cant_play_game")
                                .format(", ".join(Config.NEW_PLAYER)))
         return True, ""

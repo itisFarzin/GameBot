@@ -21,7 +21,8 @@ async def user_commands(_: BetBot, message: Message):
             await message.reply(get_translation("user_info").format(*info))
         case "balance":
             _message = message.reply_to_message if message.reply_to_message else message
-            await message.reply(get_translation("user_balance").format(_message.user_balance))
+            await message.reply(get_translation("user_balance")
+                                .format(_message.from_user.first_name, _message.user_balance))
         case "gift":
             if not message.reply_to_message:
                 await message.reply(get_translation("reply"))
@@ -56,7 +57,7 @@ async def user_commands(_: BetBot, message: Message):
             message.update_user_value("loan", amount)
             message.add_to_user_balance(amount, False, False)
             await message.reply(get_translation("granted_loan").format(amount) +
-                                get_translation("user_balance").format(message.user_balance))
+                                get_translation("player_balance").format(message.user_balance))
         case "repay":
             loan = int(message.get_user_value("loan"))
             if loan == 0:
@@ -71,7 +72,7 @@ async def user_commands(_: BetBot, message: Message):
                 amount = loan
             loan_info = message.pay_loan(amount)[1]
             await message.reply(loan_info +
-                                get_translation("user_balance").format(message.user_balance))
+                                get_translation("player_balance").format(message.user_balance))
         case "daily":
             today = datetime.now(timezone.utc).date()
             last_claim, streak = message.get_user_values(["last_claim", "claim_streak"])
@@ -99,4 +100,4 @@ async def user_commands(_: BetBot, message: Message):
             message.update_user_value("claim_streak", streak)
 
             await message.reply(get_translation("daily_reward").format(reward, text, streak) +
-                                "\n" + get_translation("user_balance").format(message.user_balance))
+                                "\n" + get_translation("player_balance").format(message.user_balance))
