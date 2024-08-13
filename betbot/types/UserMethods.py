@@ -107,7 +107,7 @@ class UserMethods:
         self.remove_from_user_balance(amount)
         if not loan_left == 0:
             
-            return loan_left, get_translation("paid_x_of_debt").format(amount, int(loan_left)) + "\n", True
+            return loan_left, get_translation("paid_x_of_debt").format(int(amount), int(loan_left)) + "\n", True
         return loan_left, get_translation("paid_full_debt").format(loan) + "\n", True
 
     def change_user_game_status(self, win: bool):

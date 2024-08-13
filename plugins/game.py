@@ -245,7 +245,7 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                 text = ""
                 res = ""
                 message_text = (get_translation("blackjack_player_hand", True).format(", ".join(player_hand), calculate_hand_value(player_hand)) +
-                                get_translation("blackjack_dealer_hand_full").format(", ".join(player_hand), calculate_hand_value(dealer_hand)))
+                                get_translation("blackjack_dealer_hand_full").format(", ".join(dealer_hand), calculate_hand_value(dealer_hand)))
                 win_amount = amount * 2.5
                 if player_hand_value > 21:
                     text = get_translation("blackjack_player_busted")
