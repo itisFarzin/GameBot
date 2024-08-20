@@ -18,6 +18,7 @@ class Message(CustomUpdate, UserMethods, pyromod.Message):
         seconds: int = 0
     ) -> "types.Message":
         msg = await self.reply(text)
+
         async def _delete(msg: Optional["types.Message"], second: int):
             if msg and second > 0:
                 await asyncio.sleep(second)
@@ -41,7 +42,10 @@ class Message(CustomUpdate, UserMethods, pyromod.Message):
                 return self.user_balance // 2
             case "quarter":
                 return self.user_balance // 4
-        human_readable_number = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000, "t": 1_000_000_000_000,
+        human_readable_number = {"k": 1_000,
+                                 "m": 1_000_000,
+                                 "b": 1_000_000_000,
+                                 "t": 1_000_000_000_000,
                                  "q": 1_000_000_000_000_000}
         try:
             for key, value in human_readable_number.items():

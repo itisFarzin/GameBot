@@ -53,7 +53,7 @@ class Config:
     ADMIN_COMMANDS = ["user"]
     COMMON_COMMANDS = ["start", "help", "leaderboard", "lb"]
     EASY_GAMES = ["basketball", "bb", "football", "fb", "dart", "dice"]
-    NORMAL_GAMES = ["slot", "roulette", "rl"]
+    NORMAL_GAMES = ["slot", "roulette", "rl", "rps"]
     HARD_GAMES = ["blackjack", "bj"]
     GAME_COMMANDS = EASY_GAMES + NORMAL_GAMES + HARD_GAMES
     USER_COMMANDS = ["info", "balance", "gift", "loan", "repay", "daily"]

@@ -69,7 +69,7 @@ class UserMethods:
         new_value = amount
 
         if tax:
-            text = f" ({get_translation('fee')})"
+            text = f"({get_translation('fee')})"
             self.insert_user(True)
             self.update_user_value("balance", self.get_user_value("balance", True) + amount * 0.05, True)
             new_value = amount * 0.95
@@ -93,7 +93,7 @@ class UserMethods:
         self.update_user_value("balance", self.user_balance - amount)
         return True
 
-    def pay_loan(self, amount: int | float):
+    def pay_loan(self, amount: int | float, new_line: bool = False):
         loan = int(self.get_user_value("loan"))
 
         if not self.has_enough_money(amount):
@@ -101,14 +101,14 @@ class UserMethods:
 
         if amount > loan:
             amount = loan
+        amount = int(amount)
 
         loan_left = loan - amount if not amount == loan else 0
         self.update_user_value("loan", loan_left)
         self.remove_from_user_balance(amount)
         if not loan_left == 0:
-            
-            return loan_left, get_translation("paid_x_of_debt").format(int(amount), int(loan_left)) + "\n", True
-        return loan_left, get_translation("paid_full_debt").format(loan) + "\n", True
+            return loan_left, get_translation("paid_x_of_debt", new_line).format(amount, int(loan_left)), True
+        return loan_left, get_translation("paid_full_debt", new_line).format(loan), True
 
     def change_user_game_status(self, win: bool):
         res = int(self.get_user_value("wins" if win else "losses"))
@@ -133,7 +133,7 @@ class UserMethods:
         self.on_trophies_change()
 
     def can_play(self, game: str):
-        if not self.league.name in Config.NEW_PLAYER:
+        if self.league.name not in Config.NEW_PLAYER:
             if game in Config.EASY_GAMES:
                 return False, (get_translation("cant_play_game")
                                .format(", ".join(Config.NEW_PLAYER)))
@@ -148,7 +148,7 @@ class UserMethods:
     @property
     def user_balance(self):
         return int(self.get_user_value("balance"))
-    
+
     @property
     def trophies(self):
         return int(self.get_user_value("trophies"))
@@ -172,5 +172,7 @@ class UserMethods:
         if self.user_is_owner:
             return True
         with Session(Config.engine) as session:
-            return bool(session.execute(select(AdminDatabase).where(AdminDatabase.id == self.from_user.id))
-                        .one_or_none())
+            return bool(session.execute(
+                select(AdminDatabase)
+                .where(AdminDatabase.id == self.from_user.id)
+            ).one_or_none())

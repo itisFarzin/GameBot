@@ -1,4 +1,5 @@
 import os
+import re
 import asyncio
 from threading import Thread
 from typing import Optional, Union
@@ -21,11 +22,24 @@ class BetBot(Client):
                          api_id=os.getenv("APP_ID", api_id),
                          api_hash=os.getenv("API_HASH", api_hash),
                          bot_token=os.getenv("BOT_TOKEN", bot_token),
-                         plugins=dict(root=self.plugins_folder))
+                         plugins=dict(root=self.plugins_folder),
+                         proxy=self._proxy_parser(os.getenv("PROXY", "")))
 
         self.dispatcher = Dispatcher(self)
 
         Base.metadata.create_all(Config.engine)
+
+    def _proxy_parser(self, proxy: str):
+        keys = ["scheme", "username", "password", "hostname", "port"]
+        pattern = re.compile(r'^(?P<scheme>[a-zA-Z0-9]+)://(?:(?P<username>[^:]+)(?::(?P<password>[^@]+))?@)?(?P<hostname>[^:]+)(?::(?P<port>\d+))?$') # noqa
+        result = pattern.match(proxy)
+
+        if not result:
+            return {}
+
+        result = {key: int(value) if str(value).isdigit() else value
+                  for key, value in result.groupdict().items()}
+        return {key: result.get(key) for key in keys}
 
     async def deletable_dice(
         self,
@@ -40,6 +54,7 @@ class BetBot(Client):
             reply_to_message_id=reply_to_message_id
         )
         msg.__class__ = types.Message
+
         async def _delete(msg: Optional["types.Message"], second: int):
             if msg and second > 0:
                 await asyncio.sleep(second)

@@ -16,8 +16,8 @@ async def user_commands(_: BetBot, message: Message):
         case "info":
             _message = message.reply_to_message if message.reply_to_message else message
             info = _message.get_user_values(["name", "balance", "wins", "losses", "loan",
-                                                   "claim_streak", "highest_win_streaks", "highest_loss_streaks",
-                                                   "trophies", "league"])
+                                             "claim_streak", "highest_win_streaks", "highest_loss_streaks",
+                                             "trophies", "league"])
             await message.reply(get_translation("user_info").format(*info))
         case "balance":
             _message = message.reply_to_message if message.reply_to_message else message
@@ -37,7 +37,7 @@ async def user_commands(_: BetBot, message: Message):
                 await message.reply(get_translation("dont_have_money"))
                 return
             message.remove_from_user_balance(amount)
-            amount, text = message.reply_to_message.add_to_user_balance(amount, should_pay_loan=False)
+            _, text = message.reply_to_message.add_to_user_balance(amount, should_pay_loan=False)
             await message.reply(get_translation("gift")
                                 .format(message.reply_to_message.from_user.first_name, amount, text))
 
@@ -70,7 +70,7 @@ async def user_commands(_: BetBot, message: Message):
                 return
             if amount > loan:
                 amount = loan
-            loan_info = message.pay_loan(amount)[1]
+            loan_info = message.pay_loan(amount, True)[1]
             await message.reply(loan_info +
                                 get_translation("player_balance").format(message.user_balance))
         case "daily":
@@ -95,9 +95,9 @@ async def user_commands(_: BetBot, message: Message):
             reward = random.randrange(100 * streak, 250 * streak)
 
             reward *= 1 + (message.league.bonus // 100)
-            reward, text = message.add_to_user_balance(reward, False)
+            _, text = message.add_to_user_balance(reward, False)
             message.update_user_value("last_claim", today)
             message.update_user_value("claim_streak", streak)
 
-            await message.reply(get_translation("daily_reward").format(reward, text, streak) +
-                                "\n" + get_translation("player_balance").format(message.user_balance))
+            await message.reply(get_translation("daily_reward", True).format(reward, text, streak) +
+                                get_translation("player_balance").format(message.user_balance))

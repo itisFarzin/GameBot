@@ -1,8 +1,8 @@
-from pyrogram import enums
 from betbot import BetBot, filters, types
 from betbot.database import Config, AdminDatabase, UserDatabase
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete, update
+from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message as PyroMessage
 
 get_translation = Config.get_translation
@@ -74,7 +74,7 @@ async def admin_commands(_: BetBot, message: types.Message):
                     [[InlineKeyboardButton(get_translation("set_balance"), f"setbalance-{user.id}"),
                       InlineKeyboardButton(get_translation("add_balance"), f"addbalance-{user.id}"),
                       InlineKeyboardButton(get_translation("remove_balance"), f"removebalance-{user.id}")],
-                    [InlineKeyboardButton(get_translation("reset_data"), f"reset-{user.id}")]]
+                     [InlineKeyboardButton(get_translation("reset_data"), f"reset-{user.id}")]]
                 ))
 
 
@@ -84,7 +84,7 @@ async def admin_callback(client: BetBot, query: CallbackQuery):
         return
     user = query.from_user
 
-    if query.message.chat.type != enums.ChatType.PRIVATE:
+    if query.message.chat.type != ChatType.PRIVATE:
         if not query.message.reply_to_message:
             return
         if not query.message.reply_to_message.from_user.id == user.id:
@@ -95,8 +95,11 @@ async def admin_callback(client: BetBot, query: CallbackQuery):
     with Session(Config.engine) as session:
         _user = await client.get_users(user_id)
         if action in ["setbalance", "addbalance", "removebalance"]:
-            sent_message: types.Message = await client.ask(query.message.chat.id, get_translation("enter_amount"), timeout=20,
-                                                        user_id=user.id)
+            sent_message: types.Message = await client.ask(
+                query.message.chat.id,
+                get_translation("enter_amount"),
+                timeout=20,
+                user_id=user.id)
             amount = sent_message.amount
 
             if amount is None:

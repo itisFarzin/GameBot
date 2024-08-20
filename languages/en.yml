@@ -31,6 +31,7 @@ help: |
   /basketball ║ /bb [amount] | play basketball
   /football ║ /fb [amount] | play football
   /dart [amount] | play dart
+  /rps [amount] | play rock paper scissors
 
   **Common Commands**:
   /info | Shows information of a user
@@ -93,7 +94,7 @@ odd: "Odd"
 red: "Red"
 black: "Black"
 cancel: "Cancel"
-win: "You Win ${:,}"
+win: "You Win ${:,} {}"
 lost: "You Lost ${:,}"
 tie: "It's a tie!"
 game_ended: "Game has been ended."
@@ -134,12 +135,22 @@ basketball_outside_nest: "Outside of the net"
 football_inside_goal: "Inside the goal"
 football_outside_goal: "Outside the goal"
 
-# dart
+# Dart
 
 dart_missed: "You missed"
 dart_normal: "You hit the {} row ({})"
 dart_center: "You hit the center"
 dart_footer: "for the game being fair, the red center dont count as red"
+
+# Rock Paper Scissors
+
+rps_rock: "rock"
+rps_paper: "paper"
+rps_scissors: "scissors"
+
+rps: |
+  Your move: {}
+  Opposite move: {}
 
 # User info
 
