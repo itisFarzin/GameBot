@@ -1,16 +1,16 @@
 from pyrogram import enums
 from sqlalchemy import select, desc
 from sqlalchemy.orm import Session
-from betbot import BetBot, filters
-from betbot.database import Config, UserDatabase
-from betbot.types import Message
+from gamebot import GameBot, filters
+from gamebot.database import Config, UserDatabase
+from gamebot.types import Message
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 get_translation = Config.get_translation
 
 
-@BetBot.on_message(filters.command(Config.COMMON_COMMANDS))
-async def common_commands(_: BetBot, message: Message):
+@GameBot.on_message(filters.command(Config.COMMON_COMMANDS))
+async def common_commands(_: GameBot, message: Message):
     action = message.command[0]
 
     match action:
@@ -48,8 +48,8 @@ async def common_commands(_: BetBot, message: Message):
                 ))
 
 
-@BetBot.on_callback_query(filters.regex(r"leaderboard-(\w+)"))
-async def common_callback(_: BetBot, query: CallbackQuery):
+@GameBot.on_callback_query(filters.regex(r"leaderboard-(\w+)"))
+async def common_callback(_: GameBot, query: CallbackQuery):
     if not query.message:
         return
     user = query.from_user

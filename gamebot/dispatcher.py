@@ -1,13 +1,13 @@
 import inspect
 import logging
-import betbot
+import gamebot
 import pyrogram
 import pyrogram.dispatcher
 
 
 class Dispatcher(pyrogram.dispatcher.Dispatcher):
 
-	def __init__(self, client: "betbot.BetBot"):
+	def __init__(self, client: "gamebot.GameBot"):
 		super().__init__(client)
 
 	async def handler_worker(self, lock):
@@ -50,11 +50,11 @@ class Dispatcher(pyrogram.dispatcher.Dispatcher):
 								new_args = []
 								for arg in args:
 									if isinstance(arg, pyrogram.types.Message):
-										arg.__class__ = betbot.types.Message
+										arg.__class__ = gamebot.types.Message
 										if arg.reply_to_message:
-											arg.reply_to_message.__class__ = betbot.types.Message
+											arg.reply_to_message.__class__ = gamebot.types.Message
 									elif isinstance(arg, pyrogram.types.CallbackQuery):
-										arg.__class__ = betbot.types.CallbackQuery
+										arg.__class__ = gamebot.types.CallbackQuery
 									new_args.append(arg)
 								if inspect.iscoroutinefunction(handler.callback):
 									await handler.callback(self.client, *new_args)

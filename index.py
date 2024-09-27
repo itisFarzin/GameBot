@@ -1,9 +1,12 @@
-import betbot
+import gamebot
 
 BLUE = '\033[34m'
 RESET = '\033[0m'
-app = betbot.BetBot()
+app = gamebot.GameBot()
 
 if __name__ == "__main__":
-    print(BLUE + "BetBot by itisFarzin" + RESET)
-    app.run()
+    print(BLUE + "GameBot by itisFarzin" + RESET)
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        print("Cya!")

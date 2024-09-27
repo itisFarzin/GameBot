@@ -1,9 +1,9 @@
 import asyncio
 import random
 from pyrogram import enums
-from betbot import BetBot, filters
-from betbot.database import Config
-from betbot.types import Message, CallbackQuery
+from gamebot import GameBot, filters
+from gamebot.database import Config
+from gamebot.types import Message, CallbackQuery
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 BLACKJACK_CARDS = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10,
@@ -20,8 +20,8 @@ def calculate_hand_value(hand: list):
     return value
 
 
-@BetBot.on_message(filters.command(Config.GAME_COMMANDS))
-async def game_commands(client: BetBot, message: Message):
+@GameBot.on_message(filters.command(Config.GAME_COMMANDS))
+async def game_commands(client: GameBot, message: Message):
     chat = message.chat
     action = message.command[0]
     amount = message.amount
@@ -66,7 +66,8 @@ async def game_commands(client: BetBot, message: Message):
             dealer_hand = [deck.pop(), deck.pop()]
             message.update_user_value("hand", " ".join(player_hand) + "|" + " ".join(dealer_hand))
             await message.reply(
-                get_translation("blackjack_player_hand", True).format(", ".join(player_hand), calculate_hand_value(player_hand)) +
+                get_translation("blackjack_player_hand", True).format(", ".join(player_hand),
+                                                                      calculate_hand_value(player_hand)) +
                 get_translation("blackjack_dealer_hand").format(dealer_hand[0]), reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton(get_translation("blackjack_hit"), f"blackjack-hit-{amount}"),
                       InlineKeyboardButton(get_translation("blackjack_stand"), f"blackjack-stand-{amount}")],
@@ -160,8 +161,9 @@ async def game_commands(client: BetBot, message: Message):
             await message.reply(get_translation("choose"), reply_markup=InlineKeyboardMarkup(keyboard))
 
 
-@BetBot.on_callback_query(filters.regex(r"(cancel|roulette|blackjack|dice|basketball|football|dart|rps)\-(\w+)?-?(\w+)?"))
-async def game_callback(client: BetBot, query: CallbackQuery):
+@GameBot.on_callback_query(
+    filters.regex(r"(cancel|roulette|blackjack|dice|basketball|football|dart|rps)\-(\w+)?-?(\w+)?"))
+async def game_callback(client: GameBot, query: CallbackQuery):
     if not query.message:
         return
     chat = query.message.chat
@@ -213,7 +215,8 @@ async def game_callback(client: BetBot, query: CallbackQuery):
             query.change_user_game_status(win)
 
             await query.edit_message_text(
-                get_translation("roulette", True).format(number, "even, black" if number % 2 == 0 else "odd, red") +
+                get_translation("roulette", True).format(
+                    number, "even, black" if number % 2 == 0 else "odd, red") +
                 text + get_translation("player_balance").format(query.user_balance))
 
         case "blackjack":
@@ -230,20 +233,26 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                 deck.pop(deck.index(card))
             if choose == "hit":
                 player_hand.append(deck.pop())
-                text = get_translation("blackjack_player_hand", True).format(", ".join(player_hand), calculate_hand_value(player_hand))
+                text = get_translation("blackjack_player_hand", True).format(
+                    ", ".join(player_hand), calculate_hand_value(player_hand))
                 if calculate_hand_value(player_hand) > 21:
                     await query.edit_message_text(
-                        text + get_translation("blackjack_dealer_hand_full").format(", ".join(dealer_hand), calculate_hand_value(dealer_hand)) +
-                        "\n\n" + get_translation("blackjack_player_busted", True) + get_translation("player_balance").format(query.user_balance))
+                        text + get_translation("blackjack_dealer_hand_full").format(", ".join(dealer_hand),
+                                                                                    calculate_hand_value(dealer_hand)) +
+                        "\n\n" + get_translation("blackjack_player_busted", True) +
+                        get_translation("player_balance").format(query.user_balance))
                     query.change_user_game_status(False)
                     query.update_user_value("hand", "")
                 else:
                     query.update_user_value("hand", " ".join(player_hand) + "|" + " ".join(dealer_hand))
                     query.update_user_value("in_game", True)
-                    await query.edit_message_text(text + get_translation("blackjack_dealer_hand").format(dealer_hand[0]),
+                    await query.edit_message_text(text +
+                                                  get_translation("blackjack_dealer_hand").format(dealer_hand[0]),
                                                   reply_markup=InlineKeyboardMarkup(
-                                                      [[InlineKeyboardButton(get_translation("blackjack_hit"), f"blackjack-hit-{amount}"),
-                                                        InlineKeyboardButton(get_translation("blackjack_stand"), f"blackjack-stand-{amount}")]]
+                                                      [[InlineKeyboardButton(get_translation("blackjack_hit"),
+                                                                             f"blackjack-hit-{amount}"),
+                                                        InlineKeyboardButton(get_translation("blackjack_stand"),
+                                                                             f"blackjack-stand-{amount}")]]
                                                   ))
             else:
                 player_hand_value = calculate_hand_value(player_hand)
@@ -251,9 +260,10 @@ async def game_callback(client: BetBot, query: CallbackQuery):
                 while dealer_hand_value < 17:
                     dealer_hand.append(deck.pop())
                     dealer_hand_value = calculate_hand_value(dealer_hand)
-                res = ""
-                text = (get_translation("blackjack_player_hand", True).format(", ".join(player_hand), calculate_hand_value(player_hand)) +
-                        get_translation("blackjack_dealer_hand_full", True).format(", ".join(dealer_hand), calculate_hand_value(dealer_hand))) + "\n"
+                text = (get_translation("blackjack_player_hand", True).format(", ".join(player_hand),
+                                                                              calculate_hand_value(player_hand)) +
+                        get_translation("blackjack_dealer_hand_full", True).format(
+                            ", ".join(dealer_hand), calculate_hand_value(dealer_hand))) + "\n"
                 win_amount = amount * 2.5
                 if player_hand_value > 21:
                     text += get_translation("blackjack_player_busted", True)
@@ -368,8 +378,9 @@ async def game_callback(client: BetBot, query: CallbackQuery):
             text = get_translation("dart_missed", True)
             match value:
                 case 2 | 3 | 4 | 5:
-                    text = get_translation("dart_normal", True).format({2: "first", 3: "second", 4: "third", 5: "fourth"}[value],
-                                                                       "Red" if value in [2, 4] else "White")
+                    text = get_translation("dart_normal", True).format(
+                        {2: "first", 3: "second", 4: "third", 5: "fourth"}[value],
+                        "Red" if value in [2, 4] else "White")
                 case 6:
                     text = get_translation("dart_center", True)
             await asyncio.sleep(3)

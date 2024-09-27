@@ -1,14 +1,14 @@
 import random
-from betbot import BetBot, filters
-from betbot.types import Message
-from betbot.database import Config
+from gamebot import GameBot, filters
+from gamebot.types import Message
+from gamebot.database import Config
 from datetime import datetime, timezone, timedelta
 
 get_translation = Config.get_translation
 
 
-@BetBot.on_message(filters.command(Config.USER_COMMANDS))
-async def user_commands(_: BetBot, message: Message):
+@GameBot.on_message(filters.command(Config.USER_COMMANDS))
+async def user_commands(_: GameBot, message: Message):
     action = message.command[0]
     amount = message.amount
 
@@ -87,7 +87,7 @@ async def user_commands(_: BetBot, message: Message):
                 if last_claim_date == today - timedelta(days=1):
                     streak += 1
 
-                    if streak == 15:
+                    if streak >= 15:
                         streak = 1
                 else:
                     streak = 1

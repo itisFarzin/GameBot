@@ -1,5 +1,5 @@
-from betbot import BetBot, filters, types
-from betbot.database import Config, AdminDatabase, UserDatabase
+from gamebot import GameBot, filters, types
+from gamebot.database import Config, AdminDatabase, UserDatabase
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete, update
 from pyrogram.enums import ChatType
@@ -8,8 +8,8 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQ
 get_translation = Config.get_translation
 
 
-@BetBot.on_message(filters.command(Config.SUDO_COMMANDS) & filters.is_owner)
-async def sudo_commands(_: BetBot, message: types.Message):
+@GameBot.on_message(filters.command(Config.SUDO_COMMANDS) & filters.is_owner)
+async def sudo_commands(_: GameBot, message: types.Message):
     action = message.command[0]
 
     match action:
@@ -58,8 +58,8 @@ async def sudo_commands(_: BetBot, message: types.Message):
                 await message.reply("\n".join(text))
 
 
-@BetBot.on_message(filters.command(Config.ADMIN_COMMANDS) & filters.is_admin)
-async def admin_commands(_: BetBot, message: types.Message):
+@GameBot.on_message(filters.command(Config.ADMIN_COMMANDS) & filters.is_admin)
+async def admin_commands(_: GameBot, message: types.Message):
     action = message.command[0]
     amount = message.amount
 
@@ -70,16 +70,18 @@ async def admin_commands(_: BetBot, message: types.Message):
     match action:
         case "user":
             user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
-            await message.reply(get_translation("user_panel").format(user.first_name), reply_markup=InlineKeyboardMarkup(
+            await message.reply(
+                get_translation("user_panel").format(user.first_name), reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton(get_translation("set_balance"), f"setbalance-{user.id}"),
-                      InlineKeyboardButton(get_translation("add_balance"), f"addbalance-{user.id}"),
-                      InlineKeyboardButton(get_translation("remove_balance"), f"removebalance-{user.id}")],
+                      InlineKeyboardButton(get_translation("increase_balance"), f"increasebalance-{user.id}"),
+                      InlineKeyboardButton(get_translation("decrease_balance"), f"decreasebalance-{user.id}")],
                      [InlineKeyboardButton(get_translation("reset_data"), f"reset-{user.id}")]]
                 ))
 
 
-@BetBot.on_callback_query(filters.regex(r"(setbalance|addbalance|removebalance|reset)-(\d+)") & filters.is_admin)
-async def admin_callback(client: BetBot, query: CallbackQuery):
+@GameBot.on_callback_query(filters.regex(r"(setbalance|increasebalance|decreasebalance|reset)-(\d+)")
+                           & filters.is_admin)
+async def admin_callback(client: GameBot, query: CallbackQuery):
     if not query.message:
         return
     user = query.from_user
@@ -94,7 +96,7 @@ async def admin_callback(client: BetBot, query: CallbackQuery):
 
     with Session(Config.engine) as session:
         _user = await client.get_users(user_id)
-        if action in ["setbalance", "addbalance", "removebalance"]:
+        if action in ["setbalance", "increasebalance", "decreasebalance"]:
             sent_message: types.Message = await client.ask(
                 query.message.chat.id,
                 get_translation("enter_amount"),
@@ -115,7 +117,7 @@ async def admin_callback(client: BetBot, query: CallbackQuery):
                 .select()
             ).fetchone()[0])
 
-            text = "impossible"
+            text = None
             if action == "setbalance":
                 session.execute(
                     update(UserDatabase)
@@ -123,14 +125,14 @@ async def admin_callback(client: BetBot, query: CallbackQuery):
                     .values({"balance": amount})
                 )
                 text = get_translation("set_user_balance").format(_user.first_name, amount)
-            elif action == "addbalance":
+            elif action == "increasebalance":
                 session.execute(
                     update(UserDatabase)
                     .where(UserDatabase.id == user_id)
                     .values({"balance": balance + amount})
                 )
                 text = get_translation("add_to_user_balance").format(amount, _user.first_name)
-            elif action == "removebalance":
+            elif action == "decreasebalance":
                 session.execute(
                     update(UserDatabase)
                     .where(UserDatabase.id == user_id)
@@ -139,7 +141,8 @@ async def admin_callback(client: BetBot, query: CallbackQuery):
                 text = get_translation("remove_from_user_balance").format(amount, _user.first_name)
             if isinstance(sent_message.sent_message, (types.Message, PyroMessage)):
                 await sent_message.sent_message.delete()
-            await query.edit_message_text(text)
+            if text:
+                await query.edit_message_text(text)
         else:
             result = session.execute(
                 select(UserDatabase).where(UserDatabase.id == user_id)

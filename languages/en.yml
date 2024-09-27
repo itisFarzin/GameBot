@@ -5,20 +5,20 @@ enter_valid_number: "Enter a valid number"
 no_zero_amount: "The amount can't be zero."
 reply: "You should reply to the user."
 player_balance: "Your current balance: ${:,}"
-dont_have_money: "You dont have this amount of money."
-money_refunded: "Your Money got refunded."
-cant_play_game: "Your league is higher than {}"
+dont_have_money: "You don't have enough money."
+money_refunded: "Your money has been refunded."
+cant_play_game: "You cannot play in a league higher than {}."
 choose: "Choose"
 white: "White"
 center: "Center"
-fee: "You paid 5% in taxes"
+fee: "You paid a 5% tax."
 list_user: "{}: {}"
 
 # Start
 
 start: |
-  Hi, welcome to bet bot
-  if you want to play games, use /help to see what games we have and how to play them
+  Hi, welcome to GameBot
+  If you want to play games, use /help to see what games we have and how to play them
 
 # Help
 
@@ -73,7 +73,7 @@ highest_loss_streaks: "Highest Loss Streaks"
 
 add_admin: "Successfully added {} as an admin."
 already_is_admin: "{} is already an admin."
-remove_admin: "Successfully removed {} from admin list."
+remove_admin: "Successfully removed {} as an admin."
 is_not_admin: "{} is not an admin."
 admins: "Admins"
 user_panel: "Panel for user {}"
@@ -116,7 +116,7 @@ blackjack_hit: "Hit"
 blackjack_stand: "Stand"
 roulette: "The wheel spins... and lands on {} ({})."
 blackjack_player_busted: "You busted! Dealer wins."
-blackjack_dealer_busted: "Dealer busted! You win"
+blackjack_dealer_busted: "Dealer busted! You win."
 blackjack_dealer_win: "Dealer wins."
 
 # Dice
@@ -137,10 +137,10 @@ football_outside_goal: "Outside the goal"
 
 # Dart
 
-dart_missed: "You missed"
+dart_missed: "You missed."
 dart_normal: "You hit the {} row ({})"
-dart_center: "You hit the center"
-dart_footer: "for the game being fair, the red center dont count as red"
+dart_center: "You hit the center."
+dart_footer: "To ensure fairness, the red center doesn't count as red."
 
 # Rock Paper Scissors
 
@@ -150,7 +150,7 @@ rps_scissors: "scissors"
 
 rps: |
   Your move: {}
-  Opposite move: {}
+  Opponent's move: {}
 
 # User info
 
@@ -181,8 +181,8 @@ already_have_debt: |
 granted_loan: |
   You have been granted a loan of ${:,}
   It has been added to your balance.
-dont_have_debt: "You dont have debt to pay."
-dont_have_money_to_pay_debt: "You dont have the money to pay the debt."
+dont_have_debt: "You don't have any debt to pay."
+dont_have_money_to_pay_debt: "You don't have enough money to repay the debt."
 paid_x_of_debt: |
   You paid ${:,} of the debt.
   You have ${:,} left to pay.
@@ -190,7 +190,7 @@ paid_full_debt: "You paid the ${:,} debt."
 
 # Daily
 
-already_claimed_daily: "You've already claimed your daily reward today."
+already_claimed_daily: "You have already claimed your daily reward today."
 daily_reward: |
   You've received ${:,} as your daily reward! {}
   Your current streak is {} days.

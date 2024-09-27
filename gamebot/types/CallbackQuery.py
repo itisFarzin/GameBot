@@ -1,7 +1,7 @@
-import betbot
+import gamebot
 import pyrogram
-from betbot import types
-from betbot.database import Config
+from gamebot import types
+from gamebot.database import Config
 from pyrogram import enums
 from typing import Optional, Union
 from pyrogram.types import InlineKeyboardMarkup
@@ -9,7 +9,7 @@ from pyrogram.errors import MessageNotModified
 
 
 class CallbackQuery(types.CustomUpdate, types.UserMethods, pyrogram.types.CallbackQuery):
-    def __init__(self, client: "betbot.BetBot" = None, **kwargs):
+    def __init__(self, client: "gamebot.GameBot" = None, **kwargs):
         super().__init__(client=client, **kwargs)
         self.is_owner = False
 

@@ -4,16 +4,16 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-import betbot
+import gamebot
 from pyrogram.types import User
 
-from betbot.database import Config, UserDatabase, AdminDatabase
+from gamebot.database import Config, UserDatabase, AdminDatabase
 
 get_translation = Config.get_translation
 
 
 class UserMethods:
-    def __init__(self, client: "betbot.BetBot", from_user: User):
+    def __init__(self, client: "gamebot.GameBot", from_user: User):
         self._client = client
         self.from_user = from_user
 
