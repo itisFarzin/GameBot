@@ -37,7 +37,7 @@ async def user_commands(_: GameBot, message: Message):
                 await message.reply(get_translation("dont_have_money"))
                 return
             message.remove_from_user_balance(amount)
-            _, text = message.reply_to_message.add_to_user_balance(amount, should_pay_loan=False)
+            _, text = message.reply_to_message.add_to_user_balance(int(amount), should_pay_loan=False)
             await message.reply(get_translation("gift")
                                 .format(message.reply_to_message.from_user.first_name, amount, text))
 
