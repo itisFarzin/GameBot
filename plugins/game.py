@@ -271,7 +271,7 @@ async def game_callback(client: GameBot, query: CallbackQuery):
                                                                               calculate_hand_value(player_hand)) +
                         get_translation("blackjack_dealer_hand_full", True).format(
                             ", ".join(dealer_hand), calculate_hand_value(dealer_hand))) + "\n"
-                win_amount = amount * 2.5
+                win_amount = amount * 2
                 if player_hand_value > 21:
                     text += get_translation("blackjack_player_busted", True)
                 elif dealer_hand_value > 21:
@@ -318,7 +318,7 @@ async def game_callback(client: GameBot, query: CallbackQuery):
             if choose.isdigit() and int(choose) == value:
                 win = True
             if win:
-                multiplier = 1 if choose in ["even", "odd", "1to3", "4to6"] else 2.5
+                multiplier = 1 if choose in ["even", "odd", "1to3", "4to6"] else 1.5
                 new_amount = int(amount * (1 + multiplier))
                 _, res = query.add_to_user_balance(new_amount)
                 text += get_translation("win", True).format(new_amount, res)
