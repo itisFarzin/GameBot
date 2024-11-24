@@ -277,6 +277,7 @@ async def game_callback(client: GameBot, query: CallbackQuery):
                 else:
                     tie = True
                 if tie:
+                    _, res = query.add_to_user_balance(amount, False)
                     text += get_translation("tie", True) + get_translation("money_refunded", True)
                 elif win:
                     _, res = query.add_to_user_balance(win_amount)
