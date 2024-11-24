@@ -1,8 +1,7 @@
-Pyrogram @ https://github.com/KurimuzonAkuma/pyrogram/archive/v2.1.28.zip
-Pyrogram
+Pyrogram @ https://github.com/KurimuzonAkuma/pyrogram/archive/v2.1.32.zip
 TgCrypto==1.2.5
 python-dotenv==1.0.1
-SQLAlchemy==2.0.31
+SQLAlchemy==2.0.36
 pyromod==3.1.6
-pyyaml==6.0.1
-mysql-connector-python
+pyyaml==6.0.2
+mysql-connector-python==9.1.0
