@@ -188,6 +188,10 @@ async def game_callback(client: GameBot, query: CallbackQuery):
     tie = False
 
     if choose == "cancel" and bool(query.get_user_value("in_game")):
+        if amount > (query.user_balance * 0.4):
+            text = get_translation("cannot_cancel_game")
+            await query.answer(text, show_alert=True)
+            return
         text = get_translation("game_canceled")
         query.update_user_value("hand", "")
         query.add_to_user_balance(amount * 0.75, False)
