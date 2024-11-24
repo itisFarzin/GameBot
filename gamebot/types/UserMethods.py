@@ -110,9 +110,14 @@ class UserMethods:
             return loan_left, get_translation("paid_x_of_debt", new_line).format(amount, int(loan_left)), True
         return loan_left, get_translation("paid_full_debt", new_line).format(loan), True
 
-    def change_user_game_status(self, win: bool):
+    def change_user_game_status(self, win: bool, tie: bool = False):
         res = int(self.get_user_value("wins" if win else "losses"))
         self.update_user_value("wins" if win else "losses", res + 1)
+
+        if tie:
+            self.update_user_value("win_streaks", 0)
+            self.update_user_value("loss_streaks", 0)
+            return
 
         if win:
             highest_win_streaks = int(self.get_user_value("highest_win_streaks"))

@@ -284,8 +284,7 @@ async def game_callback(client: GameBot, query: CallbackQuery):
                     text += get_translation("win", True).format(int(win_amount), res)
                 else:
                     text += get_translation("lost", True).format(amount)
-                if not tie:
-                    query.change_user_game_status(win)
+                query.change_user_game_status(win, tie)
                 query.update_user_value("hand", "")
                 await query.edit_message_text(text + get_translation("player_balance").format(query.user_balance))
 
@@ -427,8 +426,7 @@ async def game_callback(client: GameBot, query: CallbackQuery):
                 text += get_translation("win", True).format(new_amount, res)
             else:
                 text += get_translation("lost", True).format(amount)
-            if not tie:
-                query.change_user_game_status(win)
+            query.change_user_game_status(win, tie)
             await query.edit_message_text(text + get_translation("player_balance").format(query.user_balance))
 
     if not bool(query.get_user_value("in_game")):
