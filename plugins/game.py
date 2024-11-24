@@ -38,6 +38,9 @@ async def game_commands(client: GameBot, message: Message):
     if amount > Config.GAME_AMOUNT_LIMIT:
         await message.reply(get_translation("game_amount_limit").format(Config.GAME_AMOUNT_LIMIT))
         return
+    if bool(message.get_user_value("in_game")):
+        await message.reply(get_translation("already_in_game"))
+        return
     win = False
 
     match action:

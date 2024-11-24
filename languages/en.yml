@@ -100,6 +100,7 @@ tie: "It's a tie!"
 game_ended: "Game has been ended."
 game_canceled: "You canceled this game and you lost 25% of the money putted in the game."
 game_amount_limit: "Amount of money you put in a game can't exceed ${:,}"
+already_in_game: "You're already in a game!"
 failed_to_start_game: "Failed to start the game."
 wait: "Wait..."
 
